@@ -107,7 +107,7 @@ export class Runner {
 
         for (const s of suites) {
             for (const c of s.cases) {
-                const caseStart = performance.now();
+                const start = performance.now();
                 try {
                     await c.fn();
                     report.passed++;
@@ -115,7 +115,7 @@ export class Runner {
                         suite: s.name,
                         name: c.name,
                         status: 'passed',
-                        duration: performance.now() - caseStart,
+                        duration: performance.now() - start,
                     });
                 } catch (e: any) {
                     report.failed++;
@@ -124,7 +124,7 @@ export class Runner {
                         name: c.name,
                         status: 'failed',
                         error: e.message,
-                        duration: performance.now() - caseStart,
+                        duration: performance.now() - start,
                     });
                 }
                 report.total++;

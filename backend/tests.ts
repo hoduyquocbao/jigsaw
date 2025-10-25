@@ -6,7 +6,7 @@ import { Tree } from './jigsaw/index/tree';
 import { Conductor } from './conductor';
 
 // Lấy mã nguồn worker từ DOM, tương tự như App chính
-function getWorkerCode(): string {
+function getcode(): string {
     const element = document.getElementById('worker');
     if (!element || !element.textContent) {
         throw new Error("Không thể tìm thấy mã nguồn worker trong DOM cho môi trường test.");
@@ -106,8 +106,8 @@ suite("Jigsaw Store & Query Engine", () => {
 suite("Conductor Worker Pool", () => {
     
     test("should execute a simple task and return a result", async () => {
-        const workerCode = getWorkerCode();
-        const conductor = new Conductor(workerCode, 1);
+        const code = getcode();
+        const conductor = new Conductor(code, 1);
         const result = await conductor.submit('generate', 5);
         conductor.terminate();
         expect(result.length).equal(5);
@@ -115,8 +115,8 @@ suite("Conductor Worker Pool", () => {
     });
     
     test("should execute map operation in parallel", async () => {
-        const workerCode = getWorkerCode();
-        const conductor = new Conductor(workerCode, 4);
+        const code = getcode();
+        const conductor = new Conductor(code, 4);
         const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         
         // Sử dụng phương thức map của Conductor

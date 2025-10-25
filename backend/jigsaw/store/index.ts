@@ -6,7 +6,7 @@ import { Indexer } from './indexer';
 import { Planner } from '../query/planner';
 import { Engine } from '../engine';
 
-function gettype(kind: Kind) {
+function resolve(kind: Kind) {
     if (kind instanceof Integer) {
         switch (kind.bits) {
             case 8: return kind.signed ? Int8Array : Uint8Array;
@@ -48,7 +48,7 @@ export class Store {
         this.capacity = capacity;
         
         kind.fields.forEach((fieldkind, fieldname) => {
-            const type = gettype(fieldkind);
+            const type = resolve(fieldkind);
             this.columns[fieldname] = new type(capacity);
         });
 
@@ -104,28 +104,28 @@ export class Store {
      /**
      * @description Thực thi một truy vấn trên dữ liệu, có đo lường hiệu suất chi tiết.
      * @param {any} query Đối tượng mô tả truy vấn.
-     * @param {boolean} planner Bật/tắt planner cho mục đích demo.
+     * @param {boolean} useplanner Bật/tắt planner cho mục đích demo.
      * @returns {any} Kết quả của truy vấn, bao gồm các chỉ số hiệu suất.
      */
-    query(query: any, planner: boolean = true): any {
+    query(query: any, useplanner: boolean = true): any {
         let plan;
         
-        const startplan = performance.now();
-        if (planner) {
+        const start = performance.now();
+        if (useplanner) {
             plan = this.planner.plan(query, this.indexer);
         } else {
             plan = { strategy: 'fullscan', query, filters: query.filter };
         }
-        const timeplan = performance.now() - startplan;
+        const planning = performance.now() - start;
         
-        const startexec = performance.now();
+        const executionstart = performance.now();
         const result = this.engine.execute(plan, this);
-        const timeexec = performance.now() - startexec;
+        const execution = performance.now() - executionstart;
 
         return {
             ...result,
-            planning: timeplan,
-            execution: timeexec,
+            planning: planning,
+            execution: execution,
         };
     }
 }

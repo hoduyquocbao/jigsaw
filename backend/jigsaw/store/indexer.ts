@@ -41,8 +41,8 @@ export class Indexer {
         } else if (type instanceof Tree) {
             if (conductor) {
                 // Tree index chậm, gửi sang worker để xây dựng
-                const result = await conductor.submit('buildTree', slice);
-                (type as Tree).load(result.sortedValues, result.sortedIndices, pointers);
+                const result = await conductor.submit('build', slice);
+                (type as Tree).load(result.values, result.indices, pointers);
                 this.indexes.set(column, type);
             } else {
                 // Fallback nếu không có conductor: xây dựng trên luồng chính
@@ -52,16 +52,16 @@ export class Indexer {
                 const indices = Array.from({ length: values.length }, (_, i) => i);
                 
                 indices.sort((a, b) => {
-                    const valA = values[a];
-                    const valB = values[b];
-                    if (valA < valB) return -1;
-                    if (valA > valB) return 1;
+                    const x = values[a];
+                    const y = values[b];
+                    if (x < y) return -1;
+                    if (x > y) return 1;
                     return 0;
                 });
             
-                const sortedValues = indices.map(i => values[i]);
+                const sorted = indices.map(i => values[i]);
 
-                (type as Tree).load(sortedValues, indices, pointers);
+                (type as Tree).load(sorted, indices, pointers);
                 this.indexes.set(column, type);
             }
         }

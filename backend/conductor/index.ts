@@ -1,7 +1,7 @@
 // A unique ID for tasks
 let counter = 0;
 
-interface Task {
+interface Taskable {
     id: number;
     resolve: (value: any) => void;
     reject: (reason?: any) => void;
@@ -24,8 +24,8 @@ interface Task {
 export class Conductor {
     private workers: Worker[] = [];
     private idle: number[] = [];
-    private queue: { name: string; args: any[]; task: Task }[] = [];
-    private pending: Map<number, Task> = new Map();
+    private queue: { name: string; args: any[]; task: Taskable }[] = [];
+    private pending: Map<number, Taskable> = new Map();
     private url?: string;
 
     /**
@@ -55,7 +55,7 @@ export class Conductor {
     submit(name: string, ...args: any[]): Promise<any> {
         return new Promise((resolve, reject) => {
             const id = ++counter;
-            const task: Task = { id, resolve, reject };
+            const task: Taskable = { id, resolve, reject };
             this.pending.set(id, task);
             this.queue.push({ name, args, task });
             this.dispatch();
@@ -146,18 +146,18 @@ export class Conductor {
 
     /**
      * @description Xử lý lỗi nghiêm trọng từ một worker bằng cách khởi động lại nó.
-     * @param {number} workerIndex Chỉ số của worker.
+     * @param {number} index Chỉ số của worker.
      * @param {ErrorEvent} event Sự kiện lỗi.
      * @private
      */
-    private error(workerIndex: number, event: ErrorEvent): void {
-        console.error(`Lỗi nghiêm trọng từ worker ${workerIndex}: ${event.message}. Sẽ khởi động lại worker.`);
+    private error(index: number, event: ErrorEvent): void {
+        console.error(`Lỗi nghiêm trọng từ worker ${index}: ${event.message}. Sẽ khởi động lại worker.`);
 
         // Tìm và reject tác vụ đang chạy trên worker bị lỗi
         let id: number | null = null;
         for (const [key, task] of this.pending.entries()) {
-            if (task.worker === workerIndex) {
-                task.reject(new Error(`Worker ${workerIndex} failed: ${event.message}`));
+            if (task.worker === index) {
+                task.reject(new Error(`Worker ${index} failed: ${event.message}`));
                 id = key;
                 break;
             }
@@ -168,20 +168,20 @@ export class Conductor {
         
         // Chấm dứt worker hỏng và tạo một worker mới thay thế
         try {
-            this.workers[workerIndex].terminate();
+            this.workers[index].terminate();
         } catch (e) {
             // Bỏ qua lỗi nếu worker đã bị chấm dứt
         }
 
         if (this.url) {
-            const newWorker = new Worker(this.url);
-            newWorker.onmessage = (e) => this.finish(e.data);
-            newWorker.onerror = (e) => this.error(workerIndex, e);
-            this.workers[workerIndex] = newWorker;
+            const worker = new Worker(this.url);
+            worker.onmessage = (e) => this.finish(e.data);
+            worker.onerror = (e) => this.error(index, e);
+            this.workers[index] = worker;
         }
 
         // Đưa worker mới trở lại pool và tiếp tục công việc
-        this.idle.push(workerIndex);
+        this.idle.push(index);
         this.dispatch();
     }
 }

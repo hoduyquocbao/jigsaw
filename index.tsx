@@ -1,6 +1,5 @@
 
-
-import React, { useState, useEffect } from 'react';
+import React, { useReducer } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Conductor } from './backend/conductor';
 import { Store } from './backend/jigsaw/store';
@@ -9,7 +8,7 @@ import { Invert } from './backend/jigsaw/index/invert';
 import { Tree } from './backend/jigsaw/index/tree';
 import { Runner } from './test';
 import type { Report as Test } from './test';
-import { Card as Testcard } from './ui/report';
+import { Report as Testview } from './ui/report';
 import { Telemetry } from './backend/telemetry';
 
 // Import tests to register them with the runner
@@ -17,6 +16,13 @@ import './backend/tests.ts';
 
 const telemetry = new Telemetry();
 
+/**
+ * @description  Hiển thị trạng thái hoạt động của hệ thống backend.
+ * @purpose      Cung cấp phản hồi trực quan ngay lập tức cho người dùng về trạng thái của ứng dụng.
+ * @solves       Sự thiếu minh bạch về trạng thái của các hoạt động nền.
+ * @model        Finite State Machine (FSM). Trạng thái được biểu diễn bằng màu sắc và hoạt ảnh.
+ * @rationale    Một chỉ báo trạng thái rõ ràng giúp cải thiện trải nghiệm người dùng, đặc biệt khi thực hiện các tác vụ tốn thời gian như khởi tạo hoặc truy vấn.
+ */
 const Indicator = ({ status }: { status: string }) => {
     let colors = 'bg-yellow-500 border-yellow-400';
     let pulse = true;
@@ -43,22 +49,25 @@ const Indicator = ({ status }: { status: string }) => {
     );
 };
 
-// FIX: Refactored component to use React.FC and an explicit interface for props.
-// This resolves a series of type errors related to the 'children' prop by providing a more robust definition for the type checker.
-interface CardProps {
+interface Cardable {
     children: React.ReactNode;
     className?: string;
 }
 
-const Card: React.FC<CardProps> = ({ children, className = '' }) => (
+/**
+ * @description  Một container UI cơ bản với hiệu ứng thủy tinh và đường viền.
+ * @purpose      Cung cấp một thành phần có thể tái sử dụng để nhóm các nội dung liên quan.
+ * @solves       Sự lặp lại mã CSS cho các thẻ giao diện.
+ * @model        Component-Based Design.
+ * @rationale    Trừu tượng hóa kiểu dáng của thẻ vào một component duy nhất giúp đảm bảo tính nhất quán về mặt hình ảnh và dễ dàng thay đổi giao diện toàn cục.
+ */
+const Card: React.FC<Cardable> = ({ children, className = '' }) => (
     <div className={`bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-xl shadow-lg transition-all duration-300 hover:border-slate-600/80 hover:shadow-cyan-500/10 ${className}`}>
         {children}
     </div>
 );
 
-// FIX: Refactored component to use React.FC and an explicit interface for props.
-// This resolves a series of type errors related to the 'children' prop by providing a more robust definition for the type checker.
-interface ButtonProps {
+interface Buttonable {
     children: React.ReactNode;
     action: () => void;
     disabled: boolean;
@@ -66,7 +75,14 @@ interface ButtonProps {
     loading?: boolean;
 }
 
-const Button: React.FC<ButtonProps> = ({ children, action, disabled, className = '', loading = false }) => (
+/**
+ * @description  Một nút bấm tương tác có thể hiển thị trạng thái tải.
+ * @purpose      Cung cấp một yếu tố kêu gọi hành động (call-to-action) nhất quán.
+ * @solves       Sự lặp lại mã cho các nút bấm và logic trạng thái tải.
+ * @model        Component-Based Design.
+ * @rationale    Đóng gói các trạng thái (disabled, loading) vào component Button giúp đơn giản hóa logic trong các component cha và đảm bảo trải nghiệm người dùng nhất quán.
+ */
+const Button: React.FC<Buttonable> = ({ children, action, disabled, className = '', loading = false }) => (
      <button 
         onClick={action} 
         disabled={disabled} 
@@ -81,7 +97,15 @@ const Button: React.FC<ButtonProps> = ({ children, action, disabled, className =
     </button>
 );
 
-const TelemetryDisplay = ({ report }: { report: Record<string, number> | null }) => {
+/**
+ * @description  Hiển thị báo cáo từ module Telemetry.
+ * @purpose      Trực quan hóa hiệu suất của các hoạt động khởi tạo.
+ * @solves       Cung cấp một cách để người dùng thấy được chi phí thời gian của từng giai đoạn khởi tạo.
+ * @model        View Component.
+ * @rationale    Tách biệt việc hiển thị dữ liệu telemetry giúp giữ cho component chính (App) gọn gàng và tập trung vào việc điều phối.
+ */
+// FIX: Renamed component from `Telemetry` to `TelemetryView` to avoid conflict with the imported `Telemetry` class.
+const TelemetryView = ({ report }: { report: Record<string, number> | null }) => {
     if (!report) return null;
     return (
         <div className="fade-in">
@@ -105,7 +129,14 @@ const TelemetryDisplay = ({ report }: { report: Record<string, number> | null })
     )
 };
 
-const ResultDisplay = ({ data, onCopy, copyStatus }: { data: any, onCopy: () => void, copyStatus: string }) => {
+/**
+ * @description  Hiển thị kết quả chi tiết của một truy vấn Jigsaw.
+ * @purpose      Trình bày các chỉ số hiệu suất và kế hoạch thực thi của truy vấn.
+ * @solves       Cung cấp một giao diện người dùng để phân tích và hiểu cách truy vấn được thực thi.
+ * @model        View Component.
+ * @rationale    Việc có một component chuyên dụng để hiển thị kết quả truy vấn cho phép định dạng phức tạp (ví dụ: JSON viewer, chi tiết hiệu suất) mà không làm phức tạp component chính.
+ */
+const Outcome = ({ data, onCopy, copyStatus }: { data: any, onCopy: () => void, copyStatus: string }) => {
     if (!data) return null;
     return (
         <div className="fade-in">
@@ -135,32 +166,66 @@ const ResultDisplay = ({ data, onCopy, copyStatus }: { data: any, onCopy: () => 
     );
 };
 
+interface State {
+    store: Store | null;
+    log: string[];
+    status: string;
+    result: any;
+    test: Test | null;
+    testing: 'idle' | 'running' | 'finished';
+    report: Record<string, number> | null;
+    busy: boolean;
+    logstatus: string;
+    querystatus: string;
+}
+
+const initial: State = {
+    store: null,
+    log: [],
+    status: 'Chưa khởi tạo',
+    result: null,
+    test: null,
+    testing: 'idle',
+    report: null,
+    busy: false,
+    logstatus: 'Chép',
+    querystatus: 'Chép',
+};
+
+function reducer(state: State, action: { type: string; payload?: any }): State {
+    switch (action.type) {
+        case 'status': return { ...state, status: action.payload };
+        case 'store': return { ...state, store: action.payload };
+        case 'log/add':
+            const timestamp = new Date();
+            const time = `${timestamp.toLocaleTimeString()}.${timestamp.getMilliseconds().toString().padStart(3, '0')}`;
+            const message = `[${time}] ${action.payload}`;
+            console.log(action.payload);
+            return { ...state, log: [message, ...state.log].slice(0, 100) };
+        case 'test/run': return { ...state, testing: 'running', test: null };
+        case 'test/finish': return { ...state, testing: 'finished', test: action.payload };
+        case 'report': return { ...state, report: action.payload };
+        case 'query/start': return { ...state, busy: true, result: null };
+        case 'query/finish': return { ...state, busy: false, result: action.payload };
+        case 'status/log': return { ...state, logstatus: action.payload };
+        case 'status/query': return { ...state, querystatus: action.payload };
+        default: return state;
+    }
+}
+
+
 /**
  * @description  Component chính của ứng dụng, trình diễn kiến trúc Jigsaw và Conductor.
  * @purpose      Cung cấp một giao diện người dùng tương tác để chạy các tác vụ nặng, thực hiện truy vấn, và xác minh tính đúng đắn của hệ thống backend thông qua bộ test tích hợp.
  * @solves       Tạo ra một môi trường "live demo" cho một kiến trúc backend phức tạp.
  * @model        Model-View-Controller (MVC), trong đó App là Controller, Jigsaw/Conductor là Model, và JSX là View.
- * @rationale    Sử dụng React và state management (`useState`) cung cấp một cách hiệu quả để quản lý và hiển thị trạng thái của các hoạt động bất đồng bộ phức tạp như tạo dữ liệu, lập chỉ mục và chạy truy vấn. Việc tích hợp bộ test vào UI là một giải pháp thực tế cho môi trường không có terminal.
+ * @rationale    Sử dụng React và `useReducer` cung cấp một cách hiệu quả và tuân thủ quy tắc để quản lý và hiển thị trạng thái của các hoạt động bất đồng bộ phức tạp. Việc tập trung logic trạng thái vào một `reducer` duy nhất giúp mã nguồn sạch sẽ và dễ dự đoán hơn.
  */
 function App() {
-    const [store, setStore] = useState<Store | null>(null);
-    const [log, setLog] = useState<string[]>([]);
-    const [status, setStatus] = useState('Chưa khởi tạo');
-    const [result, setResult] = useState<any>(null);
-    
-    const [test, setTest] = useState<Test | null>(null);
-    const [testing, setTesting] = useState<'idle' | 'running' | 'finished'>('idle');
-    const [report, setReport] = useState<Record<string, number> | null>(null);
-    const [busy, setBusy] = useState(false);
-
-    const [logstatus, setLogstatus] = useState('Chép');
-    const [querystatus, setQuerystatus] = useState('Chép');
+    const [state, dispatch] = useReducer(reducer, initial);
 
     const write = (message: string) => {
-        console.log(message);
-        const timestamp = new Date();
-        const time = `${timestamp.toLocaleTimeString()}.${timestamp.getMilliseconds().toString().padStart(3, '0')}`;
-        setLog(prev => [`[${time}] ${message}`, ...prev].slice(0, 100));
+        dispatch({ type: 'log/add', payload: message });
     };
 
     const setup = async () => {
@@ -168,23 +233,23 @@ function App() {
         try {
             telemetry.reset();
             write("Bắt đầu khởi tạo...");
-            setStatus('Đang khởi tạo...');
+            dispatch({ type: 'status', payload: 'Đang khởi tạo...' });
             telemetry.start('total');
     
             write(`Đang khởi tạo Conductor từ mã nguồn nhúng...`);
-            setStatus('Khởi tạo Conductor...');
+            dispatch({ type: 'status', payload: 'Khởi tạo Conductor...' });
             telemetry.start('conductor');
             
-            const workerCode = document.getElementById('worker')?.textContent;
-            if (!workerCode) {
+            const code = document.getElementById('worker')?.textContent;
+            if (!code) {
                 throw new Error("Không thể tìm thấy mã nguồn worker trong DOM.");
             }
-            conductor = new Conductor(workerCode, navigator.hardwareConcurrency);
+            conductor = new Conductor(code, navigator.hardwareConcurrency);
 
             telemetry.end('conductor');
             write("Conductor đã sẵn sàng.");
             
-            setStatus('Đang tạo dữ liệu song song...');
+            dispatch({ type: 'status', payload: 'Đang tạo dữ liệu song song...' });
             telemetry.start('generation');
             const chunks = Array(navigator.hardwareConcurrency).fill(Math.ceil(1_000_000 / navigator.hardwareConcurrency));
             
@@ -194,7 +259,7 @@ function App() {
 
             telemetry.end('generation');
             write(`Đã tạo ${data.length.toLocaleString()} bản ghi giao dịch.`);
-            setStatus('Đang nạp dữ liệu vào Store...');
+            dispatch({ type: 'status', payload: 'Đang nạp dữ liệu vào Store...' });
             telemetry.start('loading');
     
             const kind = schema.record({
@@ -205,32 +270,32 @@ function App() {
                 timestamp: schema.integer(64, false)
             });
     
-            const newstore = new Store(kind, data.length + 10);
-            newstore.add(data);
+            const store = new Store(kind, data.length + 10);
+            store.add(data);
             telemetry.end('loading');
             write('Nạp dữ liệu vào Store thành công.');
             
-            setStatus('Đang xây dựng chỉ mục (nền)...');
+            dispatch({ type: 'status', payload: 'Đang xây dựng chỉ mục (nền)...' });
             telemetry.start('indexing');
     
             // Invert index xây dựng nhanh, có thể làm trên luồng chính
-            newstore.indexer.build('user', new Invert());
+            store.indexer.build('user', new Invert());
             write("Đã xây dựng chỉ mục Invert trên cột 'user'.");
             
             // Tree index xây dựng chậm, chuyển sang worker để tránh đóng băng UI
-            await newstore.indexer.build('timestamp', new Tree(), conductor);
+            await store.indexer.build('timestamp', new Tree(), conductor);
             write("Đã xây dựng chỉ mục Tree trên cột 'timestamp' (chạy nền).");
             
             telemetry.end('indexing');
             telemetry.end('total');
-            setReport(telemetry.report());
+            dispatch({ type: 'report', payload: telemetry.report() });
     
-            setStore(newstore);
-            setStatus('Sẵn sàng');
+            dispatch({ type: 'store', payload: store });
+            dispatch({ type: 'status', payload: 'Sẵn sàng' });
         } catch (e: any) {
             const message = `Lỗi nghiêm trọng trong quá trình khởi tạo: ${e.message}`;
             write(message);
-            setStatus('Lỗi khởi tạo');
+            dispatch({ type: 'status', payload: 'Lỗi khởi tạo' });
             console.error(e);
         } finally {
             if (conductor) {
@@ -241,10 +306,9 @@ function App() {
     };
 
     const query = (planner: boolean) => {
-        if (!store || busy) return;
+        if (!state.store || state.busy) return;
         
-        setBusy(true);
-        setResult(null);
+        dispatch({ type: 'query/start' });
         
         setTimeout(() => {
             const user = 42;
@@ -261,43 +325,40 @@ function App() {
             };
     
             write(`Đang chạy truy vấn cho user ${user} với planner=${planner}...`);
-            const response = store.query(request, planner);
+            const response = state.store!.query(request, planner);
             
-            setResult(response);
-            write(`Truy vấn hoàn tất sau ${(response.planning + response.execution).toFixed(2)}ms. (Lập kế hoạch: ${response.planning.toFixed(2)}ms, Thực thi: ${response.execution.toFixed(2)}ms)`);
-            setBusy(false);
+            dispatch({ type: 'query/finish', payload: response });
+            write(`Truy vấn hoàn tất sau ${(response.planning + response.execution).toFixed(2)}ms.`);
         }, 50);
     };
 
     const verify = async () => {
-        setTesting('running');
-        setTest(null);
+        dispatch({ type: 'test/run' });
         write("Bắt đầu chạy bộ kiểm thử backend...");
         const runner = new Runner();
         const report = await runner.run();
-        setTest(report);
-        setTesting('finished');
+        dispatch({ type: 'test/finish', payload: report });
         write(`Kiểm thử hoàn tất. ${report.passed} thành công, ${report.failed} thất bại.`);
     };
 
     const copy = (target: 'log' | 'query') => {
         let text = '';
-        if (target === 'log' && log.length > 0) {
-            text = [...log].reverse().join('\n');
+        if (target === 'log' && state.log.length > 0) {
+            text = [...state.log].reverse().join('\n');
             navigator.clipboard.writeText(text).then(() => {
-                setLogstatus('Đã chép!');
-                setTimeout(() => setLogstatus('Chép'), 2000);
+                dispatch({ type: 'status/log', payload: 'Đã chép!' });
+                setTimeout(() => dispatch({ type: 'status/log', payload: 'Chép' }), 2000);
             }).catch(() => write('Lỗi: Không thể sao chép nhật ký.'));
-        } else if (target === 'query' && result) {
-            text += `Tổng cộng: ${result.total.toFixed(2)}\n`;
-            text += `Số hàng quét: ${result.scanned.toLocaleString()}\n\n`;
-            text += `Lập kế hoạch: ${result.planning.toFixed(2)}ms\n`;
-            text += `Thực thi: ${result.execution.toFixed(2)}ms\n\n`;
+        } else if (target === 'query' && state.result) {
+            text += `Tổng cộng: ${state.result.total.toFixed(2)}\n`;
+            text += `Số hàng quét: ${state.result.scanned.toLocaleString()}\n\n`;
+            text += `Lập kế hoạch: ${state.result.planning.toFixed(2)}ms\n`;
+            text += `Thực thi: ${state.result.execution.toFixed(2)}ms\n\n`;
             text += 'Kế hoạch thực thi:\n';
-            text += JSON.stringify(result.plan, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2);
+            text += JSON.stringify(state.result.plan, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2);
             navigator.clipboard.writeText(text).then(() => {
-                setQuerystatus('Đã chép!');
-                setTimeout(() => setQuerystatus('Chép'), 2000);
+                dispatch({ type: 'status/query', payload: 'Đã chép!' });
+                setTimeout(() => dispatch({ type: 'status/query', payload: 'Chép' }), 2000);
             }).catch(() => write('Lỗi: Không thể sao chép kết quả.'));
         }
     };
@@ -307,7 +368,7 @@ function App() {
             <header className="text-center mb-10">
                 <h1 className="text-5xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500 pb-2">Jigsaw 9.0</h1>
                 <p className="text-xl text-slate-400">Động cơ CSDL In-Memory Dạng cột & Tối ưu hóa Truy vấn</p>
-                <Indicator status={status} />
+                <Indicator status={state.status} />
             </header>
 
             <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -317,15 +378,15 @@ function App() {
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                           Bảng điều khiển
                         </h2>
-                        <Button action={setup} disabled={status.startsWith('Đang')} loading={status.startsWith('Đang')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">
-                            {status === 'Chưa khởi tạo' || status === 'Lỗi khởi tạo' ? '1. Khởi tạo & Nạp 1M bản ghi' : 'Khởi tạo lại'}
+                        <Button action={setup} disabled={state.status.startsWith('Đang')} loading={state.status.startsWith('Đang')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">
+                            {state.status === 'Chưa khởi tạo' || state.status === 'Lỗi khởi tạo' ? '1. Khởi tạo & Nạp 1M bản ghi' : 'Khởi tạo lại'}
                         </Button>
                         <div className="grid grid-cols-2 gap-3 mt-3">
-                             <Button action={() => query(false)} disabled={!store || busy} loading={busy} className="bg-orange-600 hover:bg-orange-500 text-white">
-                                {busy ? 'Đang chạy...' : '2. Quét Toàn bộ'}
+                             <Button action={() => query(false)} disabled={!state.store || state.busy} loading={state.busy} className="bg-orange-600 hover:bg-orange-500 text-white">
+                                {state.busy ? 'Đang chạy...' : '2. Quét Toàn bộ'}
                             </Button>
-                            <Button action={() => query(true)} disabled={!store || busy} loading={busy} className="bg-green-600 hover:bg-green-500 text-white">
-                                {busy ? 'Đang chạy...' : '3. Dùng Chỉ mục'}
+                            <Button action={() => query(true)} disabled={!state.store || state.busy} loading={state.busy} className="bg-green-600 hover:bg-green-500 text-white">
+                                {state.busy ? 'Đang chạy...' : '3. Dùng Chỉ mục'}
                             </Button>
                         </div>
                     </Card>
@@ -334,19 +395,20 @@ function App() {
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           Xác minh Hệ thống
                         </h2>
-                        <Button action={verify} disabled={testing === 'running'} loading={testing === 'running'} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
-                           {testing === 'running' ? 'Đang chạy...' : 'Chạy Kiểm thử Backend'}
+                        <Button action={verify} disabled={state.testing === 'running'} loading={state.testing === 'running'} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
+                           {state.testing === 'running' ? 'Đang chạy...' : 'Chạy Kiểm thử Backend'}
                         </Button>
                     </Card>
-                    <TelemetryDisplay report={report} />
-                    <ResultDisplay data={result} onCopy={() => copy('query')} copyStatus={querystatus} />
+                    {/* FIX: Updated component usage from `Telemetry` to `TelemetryView`. */}
+                    <TelemetryView report={state.report} />
+                    <Outcome data={state.result} onCopy={() => copy('query')} copyStatus={state.querystatus} />
                 </section>
                 
                 <section className="lg:col-span-2">
                     <Card className="p-5 h-full flex flex-col">
-                        {test && (
+                        {state.test && (
                             <div className="fade-in">
-                                <Testcard report={test} />
+                                <Testview report={state.test} />
                                 <div className="my-4 border-t border-slate-700/60" />
                             </div>
                         )}
@@ -356,11 +418,11 @@ function App() {
                                Nhật ký Hoạt động
                             </h2>
                             <button onClick={() => copy('log')} className="bg-slate-700/80 hover:bg-slate-600/80 text-xs text-slate-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105">
-                                {logstatus}
+                                {state.logstatus}
                             </button>
                         </div>
                         <div className="font-mono text-sm text-slate-400 space-y-2 overflow-y-auto flex-grow bg-slate-900/70 p-4 rounded-md min-h-[400px]">
-                            {log.map((line, i) => <p key={i} className="whitespace-pre-wrap break-words">{line}</p>)}
+                            {state.log.map((line, i) => <p key={i} className="whitespace-pre-wrap break-words">{line}</p>)}
                         </div>
                     </Card>
                 </section>

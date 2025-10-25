@@ -25,45 +25,45 @@ function heavy(chunk) {
 // Tác vụ tạo dữ liệu mẫu
 function generate(count) {
     const data = [];
-    const startDate = new Date(2020, 0, 1).getTime();
-    const endDate = new Date(2024, 11, 31).getTime();
+    const start = new Date(2020, 0, 1).getTime();
+    const end = new Date(2024, 11, 31).getTime();
     for (let i = 0; i < count; i++) {
         data.push({
             id: i,
             user: Math.floor(Math.random() * 100),
             product: Math.floor(Math.random() * 1000),
             amount: Math.random() * 200,
-            timestamp: startDate + Math.random() * (endDate - startDate),
+            timestamp: start + Math.random() * (end - start),
         });
     }
     return data;
 }
 
 // Tác vụ xây dựng chỉ mục Tree
-function buildTree(column) {
+function build(column) {
     // Chuyển đổi sang BigInt để sắp xếp chính xác.
     const values = Array.from(column, (v) => BigInt(String(v)));
     const indices = Array.from({ length: values.length }, (_, i) => i);
     
     indices.sort((a, b) => {
-        const valA = values[a];
-        const valB = values[b];
-        if (valA < valB) return -1;
-        if (valA > valB) return 1;
+        const x = values[a];
+        const y = values[b];
+        if (x < y) return -1;
+        if (x > y) return 1;
         return 0;
     });
 
     // Trả về một cấu trúc chứa cả giá trị và chỉ số đã được sắp xếp
     // để luồng chính có thể tái tạo lại chỉ mục.
-    const sortedValues = indices.map(i => values[i]);
-    return { sortedValues, sortedIndices: indices };
+    const result = indices.map(i => values[i]);
+    return { values: result, indices: indices };
 }
 
 
 const registry = {
     heavy,
     generate,
-    buildTree,
+    build,
 };
 
 // --- Kết thúc registry được nhúng ---
