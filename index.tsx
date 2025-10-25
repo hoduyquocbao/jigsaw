@@ -109,6 +109,7 @@ function App() {
 
     const runTests = async () => {
         setTestStatus('running');
+        setTestReport(null); // Xóa báo cáo cũ khi bắt đầu chạy
         addLog("Bắt đầu chạy bộ kiểm thử backend...");
         const runner = new Runner();
         const report = await runner.run();
@@ -177,23 +178,21 @@ function App() {
                     )}
                 </section>
                 
-                <section className="md:col-span-2">
-                   {testStatus === 'idle' && (
-                     <div className="bg-gray-800 p-4 rounded-lg h-full">
+                <section className="md:col-span-2 space-y-6">
+                    {testReport && (
+                        <ReportUI report={testReport} />
+                    )}
+                    <div className="bg-gray-800 p-4 rounded-lg">
                         <div className="flex justify-between items-center mb-3">
                             <h2 className="text-xl font-semibold text-white">Nhật ký Hoạt động</h2>
                             <button onClick={copyLog} className="bg-gray-700 hover:bg-gray-600 text-xs text-gray-300 font-bold py-1 px-3 rounded transition-colors">
                                 {copyStatus}
                             </button>
                         </div>
-                        <div className="font-mono text-sm text-gray-400 space-y-1 overflow-y-auto h-[calc(100vh-200px)]">
+                        <div className="font-mono text-sm text-gray-400 space-y-1 overflow-y-auto max-h-[60vh]">
                             {log.map((line, i) => <p key={i}>{line}</p>)}
                         </div>
                     </div>
-                   )}
-                   {testStatus !== 'idle' && testReport && (
-                       <ReportUI report={testReport} />
-                   )}
                 </section>
             </main>
         </div>

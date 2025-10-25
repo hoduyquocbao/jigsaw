@@ -37,14 +37,24 @@ export class Tree {
      * @returns {Set<Pointer>} Tập hợp các con trỏ.
      */
     find(min: any, max: any): Set<Pointer> {
-        // Đây là một phiên bản đơn giản, quét tuyến tính sau khi tìm điểm bắt đầu.
-        // Một triển khai thực sự sẽ sử dụng tìm kiếm nhị phân để tìm cả hai điểm cuối.
         const results = new Set<Pointer>();
+
+        // FIX: Chuyển đổi tường minh và an toàn các giá trị biên thành BigInt.
+        // Điều này ngăn ngừa lỗi "Cannot mix BigInt and other types" hoặc lỗi parsing
+        // nếu `min` hoặc `max` được truyền vào dưới dạng string hoặc number.
+        const minVal = min !== undefined && min !== null ? BigInt(min) : null;
+        const maxVal = max !== undefined && max !== null ? BigInt(max) : null;
+
         for (const [value, pointer] of this.sorted) {
-            if (value >= min && value <= max) {
+            const checkMin = minVal === null || value >= minVal;
+            const checkMax = maxVal === null || value <= maxVal;
+
+            if (checkMin && checkMax) {
                 results.add(pointer);
             }
-            if (value > max) {
+            
+            // Tối ưu hóa: dừng sớm nếu đã vượt qua phạm vi
+            if (maxVal !== null && value > maxVal) {
                 break;
             }
         }
