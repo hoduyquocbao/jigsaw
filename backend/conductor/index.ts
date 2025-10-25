@@ -19,7 +19,7 @@ interface Task {
  *               2. Phân tán dữ liệu song song theo mô hình Map.
  * @complexity   - Gửi tác vụ (submit): O(1).
  *               - Xử lý map song song: Lý tưởng là O(N/P) với N là kích thước dữ liệu và P là số worker.
- * @rationale    Sử dụng một factory method `create` bất đồng bộ để fetch mã nguồn worker đảm bảo Conductor có thể được khởi tạo một cách an toàn và độc lập với build tools. Worker được tạo từ Blob URL là phương pháp an toàn và linh hoạt nhất, giải quyết triệt để các vấn đề về cross-origin và phân giải module trong các môi trường hạn chế.
+ * @rationale    Loại bỏ phương thức `create` bất đồng bộ và `fetch`. Worker giờ được tạo từ một chuỗi mã nguồn được cung cấp trực tiếp, đảm bảo mã nguồn đã được biên dịch bởi bundler. Việc tạo worker từ Blob URL là phương pháp an toàn và linh hoạt nhất, giải quyết triệt để các vấn đề về cross-origin và phân giải module.
  */
 export class Conductor {
     private workers: Worker[] = [];
@@ -29,31 +29,11 @@ export class Conductor {
     private url?: string;
 
     /**
-     * @description Factory method để tạo và khởi tạo một instance Conductor.
-     * @param {string} path Đường dẫn đến kịch bản worker.
+     * @description Khởi tạo Conductor và tạo ra bể chứa worker.
+     * @param {string} code Chuỗi mã nguồn JavaScript đã được biên dịch cho worker.
      * @param {number} size Kích thước của bể chứa, mặc định là số lõi logic của CPU.
-     * @returns {Promise<Conductor>} Một promise resolve với instance Conductor đã sẵn sàng.
      */
-    public static async create(path: string, size: number = navigator.hardwareConcurrency): Promise<Conductor> {
-        try {
-            const response = await fetch(path);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch worker code at ${path}: ${response.statusText}`);
-            }
-            const code = await response.text();
-            return new Conductor(code, size);
-        } catch (e) {
-            console.error("Failed to create Conductor instance:", e);
-            throw e;
-        }
-    }
-
-    /**
-     * @description Constructor riêng. Sử dụng `Conductor.create()` để khởi tạo.
-     * @param {string} code Chuỗi mã nguồn cho worker.
-     * @param {number} size Kích thước của bể chứa.
-     */
-    private constructor(code: string, size: number) {
+    constructor(code: string, size: number = navigator.hardwareConcurrency) {
         const blob = new Blob([code], { type: 'application/javascript' });
         this.url = URL.createObjectURL(blob);
 

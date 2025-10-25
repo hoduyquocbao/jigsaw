@@ -48,7 +48,7 @@ export class Indexer {
                 // Fallback nếu không có conductor: xây dựng trên luồng chính
                 console.warn(`Xây dựng Tree index cho cột '${column}' trên luồng chính. Điều này có thể gây đóng băng UI.`);
                 
-                const values = Array.from(slice, (v: any) => BigInt(v));
+                const values = Array.from(slice, (v: any) => BigInt(String(v)));
                 const indices = Array.from({ length: values.length }, (_, i) => i);
                 
                 indices.sort((a, b) => {
@@ -60,9 +60,8 @@ export class Indexer {
                 });
             
                 const sortedValues = indices.map(i => values[i]);
-                const sortedIndices = indices;
 
-                (type as Tree).load(sortedValues, sortedIndices, pointers);
+                (type as Tree).load(sortedValues, indices, pointers);
                 this.indexes.set(column, type);
             }
         }

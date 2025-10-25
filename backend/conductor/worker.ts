@@ -43,7 +43,7 @@ function generate(count) {
 function buildTree(column) {
     // Chuyển đổi sang BigInt để sắp xếp chính xác.
     const values = Array.from(column, (v) => BigInt(String(v)));
-    const indices = Array.from({ length: column.length }, (_, i) => i);
+    const indices = Array.from({ length: values.length }, (_, i) => i);
     
     indices.sort((a, b) => {
         const valA = values[a];

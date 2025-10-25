@@ -15,8 +15,6 @@ import { Telemetry } from './backend/telemetry';
 // Import tests to register them with the runner
 import './backend/tests.ts';
 
-const WORKER_URL = 'https://raw.githubusercontent.com/hoduyquocbao/jigsaw/main/backend/conductor/worker.ts';
-
 const telemetry = new Telemetry();
 
 const Indicator = ({ status }: { status: string }) => {
@@ -155,7 +153,6 @@ function App() {
     const [report, setReport] = useState<Record<string, number> | null>(null);
     const [busy, setBusy] = useState(false);
 
-    const [version, setVersion] = useState<number | null>(null);
     const [logstatus, setLogstatus] = useState('Chép');
     const [querystatus, setQuerystatus] = useState('Chép');
 
@@ -174,13 +171,16 @@ function App() {
             setStatus('Đang khởi tạo...');
             telemetry.start('total');
     
-            const now = Date.now();
-            setVersion(now);
-            write(`Đang tải mã nguồn worker (phiên bản ${now}) và khởi tạo Conductor...`);
+            write(`Đang khởi tạo Conductor từ mã nguồn nhúng...`);
             setStatus('Khởi tạo Conductor...');
             telemetry.start('conductor');
             
-            conductor = await Conductor.create(`${WORKER_URL}?v=${now}`, navigator.hardwareConcurrency);
+            const workerCode = document.getElementById('worker')?.textContent;
+            if (!workerCode) {
+                throw new Error("Không thể tìm thấy mã nguồn worker trong DOM.");
+            }
+            conductor = new Conductor(workerCode, navigator.hardwareConcurrency);
+
             telemetry.end('conductor');
             write("Conductor đã sẵn sàng.");
             
@@ -308,9 +308,6 @@ function App() {
                 <h1 className="text-5xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500 pb-2">Jigsaw 9.0</h1>
                 <p className="text-xl text-slate-400">Động cơ CSDL In-Memory Dạng cột & Tối ưu hóa Truy vấn</p>
                 <Indicator status={status} />
-                 {version && (
-                    <p className="text-xs text-slate-500 font-mono mt-2">Phiên bản Worker: {version}</p>
-                )}
             </header>
 
             <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">

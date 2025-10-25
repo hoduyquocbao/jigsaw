@@ -5,7 +5,14 @@ import { Invert } from './jigsaw/index/invert';
 import { Tree } from './jigsaw/index/tree';
 import { Conductor } from './conductor';
 
-const WORKER_URL = 'https://raw.githubusercontent.com/hoduyquocbao/jigsaw/main/backend/conductor/worker.ts';
+// Lấy mã nguồn worker từ DOM, tương tự như App chính
+function getWorkerCode(): string {
+    const element = document.getElementById('worker');
+    if (!element || !element.textContent) {
+        throw new Error("Không thể tìm thấy mã nguồn worker trong DOM cho môi trường test.");
+    }
+    return element.textContent;
+}
 
 suite("Jigsaw Schema", () => {
     test("should define and get kinds correctly", () => {
@@ -75,10 +82,11 @@ suite("Jigsaw Store & Query Engine", () => {
         expect(result.total).equal(125.75);
     });
     
-    test("should use Tree index for range queries and scan correct number of rows", () => {
+    test("should use Tree index for range queries and scan correct number of rows", async () => {
         const store = new Store(kind, 10);
         store.add(data);
-        store.indexer.build('timestamp', new Tree());
+        // Giả lập build không đồng bộ
+        await store.indexer.build('timestamp', new Tree());
 
         const query = {
             filter: [
@@ -98,7 +106,8 @@ suite("Jigsaw Store & Query Engine", () => {
 suite("Conductor Worker Pool", () => {
     
     test("should execute a simple task and return a result", async () => {
-        const conductor = await Conductor.create(WORKER_URL, 1);
+        const workerCode = getWorkerCode();
+        const conductor = new Conductor(workerCode, 1);
         const result = await conductor.submit('generate', 5);
         conductor.terminate();
         expect(result.length).equal(5);
@@ -106,21 +115,21 @@ suite("Conductor Worker Pool", () => {
     });
     
     test("should execute map operation in parallel", async () => {
-        const conductor = await Conductor.create(WORKER_URL, 4);
+        const workerCode = getWorkerCode();
+        const conductor = new Conductor(workerCode, 4);
         const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        const chunks = [data.slice(0, 5), data.slice(5)];
         
-        const promises = chunks.map(chunk => conductor.submit('heavy', chunk));
-        const results = await Promise.all(promises);
+        // Sử dụng phương thức map của Conductor
+        const results = await conductor.map(data, 'heavy');
         conductor.terminate();
         
-        const expected1 = chunks[0].reduce((s, v) => s + Math.sqrt(v), 0);
-        const expected2 = chunks[1].reduce((s, v) => s + Math.sqrt(v), 0);
+        // Tính toán kết quả mong đợi
+        const expected = data.reduce((s, v) => s + Math.sqrt(v), 0);
+        const total = results.reduce((s, v) => s + v, 0);
 
-        expect(results.length).equal(2);
+        expect(results.length > 1).truthy(); // Đảm bảo nó được chia ra
         
         const tolerance = 1e-9;
-        expect(Math.abs(results[0] - expected1) < tolerance).truthy();
-        expect(Math.abs(results[1] - expected2) < tolerance).truthy();
+        expect(Math.abs(total - expected) < tolerance).truthy();
     });
 });
