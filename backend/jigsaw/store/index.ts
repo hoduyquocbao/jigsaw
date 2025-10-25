@@ -61,6 +61,15 @@ export class Store {
     count(): number {
         return this._count;
     }
+    
+    /**
+     * @description Lấy bộ con trỏ gốc của store.
+     * @returns {Pointer[]} Mảng các con trỏ đến mỗi hàng.
+     */
+    public getPointers(): Pointer[] {
+        return this.pointers;
+    }
+
 
     /**
      * @description Thêm một loạt các đối tượng vào store. Xử lý việc chuyển đổi kiểu dữ liệu cần thiết.
@@ -84,7 +93,8 @@ export class Store {
                 if (fieldKind instanceof Integer && fieldKind.bits === 64) {
                     if (typeof value !== 'bigint') {
                         // Làm tròn number trước khi chuyển đổi để tránh lỗi.
-                        value = BigInt(typeof value === 'number' ? Math.round(value) : value);
+                        const num = Number(value);
+                        value = BigInt(isNaN(num) ? 0 : Math.round(num));
                     }
                 }
                 

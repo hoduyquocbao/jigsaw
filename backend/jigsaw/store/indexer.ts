@@ -29,13 +29,15 @@ export class Indexer {
             throw new Error(`Column '${column}' does not exist.`);
         }
         
-        // Tạo một mảng con trỏ mới mỗi lần build
-        const pointers = Array.from({ length: this.store.count() }, (_, i) => new Pointer(i));
+        // FIX: Sử dụng bộ con trỏ gốc từ store để đảm bảo tính nhất quán tham chiếu.
+        const pointers = this.store.getPointers();
+        // Chỉ lập chỉ mục trên dữ liệu đã thực sự được thêm vào.
+        const slicedData = columnData.slice(0, this.store.count());
 
         if (type instanceof Invert) {
-            this.indexes.set(column, new Invert(columnData, pointers));
+            this.indexes.set(column, new Invert(slicedData, pointers));
         } else if (type instanceof Tree) {
-             this.indexes.set(column, new Tree(columnData, pointers));
+             this.indexes.set(column, new Tree(slicedData, pointers));
         }
     }
 
