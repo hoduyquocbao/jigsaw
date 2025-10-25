@@ -21,7 +21,11 @@ export class Tree {
     }
 
     private build(column: any[], pointers: Pointer[]): void {
-        this.sorted = column.map((value, i) => [value, pointers[i]]);
+        // FIX: Chuyển đổi TypedArray thành một mảng thông thường trước khi gọi .map().
+        // Điều này ngăn ngừa lỗi khi .map() của TypedArray cố gắng ép kiểu một mảng ([value, pointer])
+        // thành một giá trị BigInt duy nhất.
+        this.sorted = Array.from(column).map((value, i) => [value, pointers[i]]);
+        
         // Xử lý BigInt khi sắp xếp
         this.sorted.sort((a, b) => {
             if (a[0] < b[0]) return -1;
@@ -39,7 +43,7 @@ export class Tree {
     find(min: any, max: any): Set<Pointer> {
         const results = new Set<Pointer>();
 
-        // FIX: Chuyển đổi tường minh và an toàn các giá trị biên thành BigInt.
+        // Chuyển đổi tường minh và an toàn các giá trị biên thành BigInt.
         // Điều này ngăn ngừa lỗi "Cannot mix BigInt and other types" hoặc lỗi parsing
         // nếu `min` hoặc `max` được truyền vào dưới dạng string hoặc number.
         const minVal = min !== undefined && min !== null ? BigInt(min) : null;
