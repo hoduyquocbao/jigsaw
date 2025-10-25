@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { Report, Result } from '../test';
 
 /**
@@ -9,17 +9,37 @@ import type { Report, Result } from '../test';
  * @rationale    Một giao diện đồ họa cho phép phân loại, tô màu và định dạng kết quả, giúp việc xác định các bài test thất bại và gỡ lỗi trở nên nhanh chóng và hiệu quả hơn nhiều so với việc đọc văn bản thuần túy.
  */
 export function Report({ report }: { report: Report }) {
+    const [copyStatus, setCopyStatus] = useState('Chép Báo cáo');
+
     if (!report) return null;
 
     const summary = `Hoàn thành sau ${report.duration.toFixed(2)}ms. Tổng: ${report.total}, Thành công: ${report.passed}, Thất bại: ${report.failed}.`;
 
+    const copyReport = () => {
+        const reportText = JSON.stringify(report, null, 2);
+        navigator.clipboard.writeText(reportText).then(() => {
+            setCopyStatus('Đã chép!');
+            setTimeout(() => setCopyStatus('Chép Báo cáo'), 2000);
+        }).catch(err => {
+            console.error('Lỗi khi sao chép báo cáo kiểm thử: ', err);
+        });
+    };
+
     return (
         <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/80 p-5 rounded-xl shadow-lg font-mono text-sm">
-            <div className="mb-4">
-                <h3 className="text-lg font-bold text-white mb-2">Kết quả Kiểm thử Backend</h3>
-                <p className={`text-base ${report.failed > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {summary}
-                </p>
+            <div className="mb-4 flex justify-between items-start">
+                <div>
+                    <h3 className="text-lg font-bold text-white mb-2">Kết quả Kiểm thử Backend</h3>
+                    <p className={`text-base ${report.failed > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                        {summary}
+                    </p>
+                </div>
+                <button 
+                    onClick={copyReport} 
+                    className="bg-gray-700/80 hover:bg-gray-600/80 text-xs text-gray-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105 flex-shrink-0 ml-4"
+                >
+                    {copyStatus}
+                </button>
             </div>
             <div className="space-y-3">
                 {report.results.map((result, index) => (
