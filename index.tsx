@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Conductor } from './backend/conductor';
@@ -14,6 +15,30 @@ import { Report as ReportUI } from './ui/report';
 import './backend/tests.ts';
 
 const WORKER_URL = 'https://raw.githubusercontent.com/hoduyquocbao/jigsaw/main/backend/conductor/worker.ts';
+
+const StatusIndicator = ({ status }: { status: string }) => {
+    let colorClasses = 'bg-yellow-500/50 border-yellow-400';
+    let pulse = true;
+
+    if (status === 'Chưa khởi tạo') {
+        colorClasses = 'bg-gray-500/50 border-gray-400';
+        pulse = false;
+    } else if (status === 'Sẵn sàng') {
+        colorClasses = 'bg-green-500/50 border-green-400';
+        pulse = false;
+    }
+    
+    return (
+        <div className="font-mono mt-4 px-4 py-2 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-full inline-flex items-center gap-3 shadow-md">
+            <span className="relative flex h-3 w-3">
+                {pulse && <span className={`${colorClasses.split(' ')[0]} animate-ping absolute inline-flex h-full w-full rounded-full opacity-75`}></span>}
+                <span className={`relative inline-flex rounded-full h-3 w-3 ${colorClasses.split(' ')[0]}`}></span>
+            </span>
+            <span className="text-gray-300">Trạng thái: {status}</span>
+        </div>
+    );
+};
+
 
 /**
  * @description  Component chính của ứng dụng, trình diễn kiến trúc Jigsaw và Conductor.
@@ -130,51 +155,68 @@ function App() {
             addLog('Lỗi: Không thể sao chép nhật ký.');
         });
     };
+    
+    const Card = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+        <div className={`bg-gray-800/50 backdrop-blur-sm border border-gray-700/80 rounded-xl shadow-lg ${className}`}>
+            {children}
+        </div>
+    );
+    
+    const Button = ({ children, onClick, disabled, className = '' }: { children: React.ReactNode, onClick: () => void, disabled: boolean, className?: string }) => (
+         <button 
+            onClick={onClick} 
+            disabled={disabled} 
+            className={`font-bold py-2 px-4 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-1 hover:shadow-xl shadow-md disabled:opacity-50 disabled:transform-none disabled:shadow-md disabled:cursor-not-allowed ${className}`}>
+            {children}
+        </button>
+    );
 
 
     return (
-        <div className="container mx-auto p-4 max-w-7xl">
-            <header className="text-center mb-6">
-                <h1 className="text-4xl font-bold text-cyan-400">Jigsaw 8.0</h1>
-                <p className="text-lg text-gray-400">Động cơ CSDL In-Memory Dạng cột & JIT-Optimized</p>
-                <p className="text-md font-mono mt-2 px-2 py-1 bg-gray-800 rounded-md inline-block">Trạng thái: {status}</p>
-                {workerVersion && (
-                    <p className="text-xs text-gray-500 font-mono mt-1">Phiên bản Worker: {workerVersion}</p>
+        <div className="container mx-auto p-6 md:p-8 max-w-7xl">
+            <header className="text-center mb-8">
+                <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500 pb-2">Jigsaw 8.0</h1>
+                <p className="text-xl text-gray-400">Động cơ CSDL In-Memory Dạng cột & JIT-Optimized</p>
+                <StatusIndicator status={status} />
+                 {workerVersion && (
+                    <p className="text-xs text-gray-500 font-mono mt-2">Phiên bản Worker: {workerVersion}</p>
                 )}
             </header>
 
             <main className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <section className="md:col-span-1 space-y-4">
-                    <div className="bg-gray-800 p-4 rounded-lg">
-                        <h2 className="text-xl font-semibold text-white mb-3">Bảng điều khiển</h2>
-                        <button onClick={setup} disabled={status !== 'Chưa khởi tạo'} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-600 disabled:cursor-not-allowed">
+                <section className="md:col-span-1 space-y-6">
+                    <Card className="p-5">
+                        <h2 className="text-xl font-semibold text-white mb-4">Bảng điều khiển</h2>
+                        <Button onClick={setup} disabled={status !== 'Chưa khởi tạo'} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">
                             1. Khởi tạo & Nạp 1M bản ghi
-                        </button>
-                        <div className="flex space-x-2 mt-2">
-                             <button onClick={() => runQuery(false)} disabled={!store} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        </Button>
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                             <Button onClick={() => runQuery(false)} disabled={!store} className="bg-orange-600 hover:bg-orange-500 text-white">
                                 2. Quét toàn bộ
-                            </button>
-                            <button onClick={() => runQuery(true)} disabled={!store} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-600 disabled:cursor-not-allowed">
+                            </Button>
+                            <Button onClick={() => runQuery(true)} disabled={!store} className="bg-green-600 hover:bg-green-500 text-white">
                                 3. Dùng Chỉ mục
-                            </button>
+                            </Button>
                         </div>
-                    </div>
-                     <div className="bg-gray-800 p-4 rounded-lg">
-                        <h2 className="text-xl font-semibold text-white mb-3">Xác minh Hệ thống</h2>
-                        <button onClick={runTests} disabled={testStatus === 'running'} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-600 disabled:cursor-not-allowed">
+                    </Card>
+                     <Card className="p-5">
+                        <h2 className="text-xl font-semibold text-white mb-4">Xác minh Hệ thống</h2>
+                        <Button onClick={runTests} disabled={testStatus === 'running'} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
                            {testStatus === 'running' ? 'Đang chạy...' : 'Chạy Kiểm thử Backend'}
-                        </button>
-                    </div>
+                        </Button>
+                    </Card>
                     {queryResult && (
-                        <div className="bg-gray-800 p-4 rounded-lg">
+                        <Card className="p-5">
                              <h2 className="text-xl font-semibold text-white mb-3">Kết quả Truy vấn</h2>
-                             <p><span className="font-bold text-gray-400">Tổng cộng:</span> <span className="text-yellow-400 font-mono">{queryResult.total.toFixed(2)}</span></p>
-                             <p><span className="font-bold text-gray-400">Số hàng đã quét:</span> <span className="text-yellow-400 font-mono">{queryResult.scanned.toLocaleString()}</span></p>
-                             <details className="mt-2 text-xs text-gray-500">
-                                <summary>Xem kế hoạch thực thi</summary>
-                                <pre className="bg-gray-900 p-2 rounded mt-1 whitespace-pre-wrap">{JSON.stringify(queryResult.plan, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2)}</pre>
+                             <div className="space-y-2 text-lg">
+                                <p className="flex justify-between items-baseline"><span className="font-bold text-gray-400">Tổng cộng:</span> <span className="text-yellow-400 font-mono text-2xl">{queryResult.total.toFixed(2)}</span></p>
+                                <p className="flex justify-between items-baseline"><span className="font-bold text-gray-400">Số hàng đã quét:</span> <span className="text-yellow-400 font-mono text-2xl">{queryResult.scanned.toLocaleString()}</span></p>
+                             </div>
+                             <details className="mt-3 text-xs text-gray-500 cursor-pointer">
+                                <summary className="font-semibold">Xem kế hoạch thực thi</summary>
+                                <pre className="bg-gray-900/70 p-3 rounded-md mt-2 whitespace-pre-wrap selection:bg-cyan-500/20">{JSON.stringify(queryResult.plan, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2)}</pre>
                              </details>
-                        </div>
+                        </Card>
                     )}
                 </section>
                 
@@ -182,17 +224,17 @@ function App() {
                     {testReport && (
                         <ReportUI report={testReport} />
                     )}
-                    <div className="bg-gray-800 p-4 rounded-lg">
+                    <Card className="p-5 h-full flex flex-col">
                         <div className="flex justify-between items-center mb-3">
                             <h2 className="text-xl font-semibold text-white">Nhật ký Hoạt động</h2>
-                            <button onClick={copyLog} className="bg-gray-700 hover:bg-gray-600 text-xs text-gray-300 font-bold py-1 px-3 rounded transition-colors">
+                            <button onClick={copyLog} className="bg-gray-700/80 hover:bg-gray-600/80 text-xs text-gray-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105">
                                 {copyStatus}
                             </button>
                         </div>
-                        <div className="font-mono text-sm text-gray-400 space-y-1 overflow-y-auto max-h-[60vh]">
-                            {log.map((line, i) => <p key={i}>{line}</p>)}
+                        <div className="font-mono text-sm text-gray-400 space-y-2 overflow-y-auto flex-grow bg-gray-900/70 p-4 rounded-md min-h-[300px]">
+                            {log.map((line, i) => <p key={i} className="whitespace-pre-wrap break-words">{line}</p>)}
                         </div>
-                    </div>
+                    </Card>
                 </section>
             </main>
         </div>

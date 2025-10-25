@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Report, Result } from '../test';
 
@@ -13,32 +14,36 @@ export function Report({ report }: { report: Report }) {
     const summary = `Hoàn thành sau ${report.duration.toFixed(2)}ms. Tổng: ${report.total}, Thành công: ${report.passed}, Thất bại: ${report.failed}.`;
 
     return (
-        <div className="p-4 bg-gray-800 rounded-lg font-mono text-sm max-h-screen overflow-y-auto">
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/80 p-5 rounded-xl shadow-lg font-mono text-sm">
             <div className="mb-4">
                 <h3 className="text-lg font-bold text-white mb-2">Kết quả Kiểm thử Backend</h3>
                 <p className={`text-base ${report.failed > 0 ? 'text-red-400' : 'text-green-400'}`}>
                     {summary}
                 </p>
             </div>
-            {report.results.map((result, index) => (
-                <div key={index} className="border-b border-gray-700 py-2">
-                    <div className="flex items-center">
-                        {result.status === 'passed' ? (
-                            <span className="text-green-500 mr-2">✓</span>
-                        ) : (
-                            <span className="text-red-500 mr-2">✗</span>
-                        )}
-                        <span className="text-gray-500">{result.suite} &gt;</span>
-                        <span className="text-gray-300 ml-1">{result.name}</span>
-                        <span className="text-gray-600 ml-auto">{result.duration.toFixed(2)}ms</span>
-                    </div>
-                    {result.status === 'failed' && (
-                        <div className="mt-2 ml-5 p-2 bg-red-900/20 text-red-300 rounded">
-                            <pre className="whitespace-pre-wrap break-words">{result.error}</pre>
+            <div className="space-y-3">
+                {report.results.map((result, index) => (
+                    <div key={index} className="border-t border-gray-700/80 pt-3">
+                        <div className="flex items-center">
+                            {result.status === 'passed' ? (
+                                <span className="text-green-400 mr-3 font-bold text-lg">✓</span>
+                            ) : (
+                                <span className="text-red-400 mr-3 font-bold text-lg">✗</span>
+                            )}
+                            <div className="flex-1">
+                                <span className="text-gray-500">{result.suite} &gt;</span>
+                                <span className="text-gray-200 ml-2">{result.name}</span>
+                            </div>
+                            <span className="text-gray-500 ml-4">{result.duration.toFixed(2)}ms</span>
                         </div>
-                    )}
-                </div>
-            ))}
+                        {result.status === 'failed' && (
+                            <div className="mt-2 ml-8 pl-4 border-l-2 border-red-500/50 text-red-300">
+                                <pre className="whitespace-pre-wrap break-words">{result.error}</pre>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
