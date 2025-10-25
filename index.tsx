@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Conductor } from './backend/conductor';
@@ -39,6 +40,81 @@ const Indicator = ({ status }: { status: string }) => {
                 <span className={`relative inline-flex rounded-full h-3 w-3 ${colors}`}></span>
             </span>
             <span className="text-slate-300">Trạng thái: {status}</span>
+        </div>
+    );
+};
+
+const Card = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+    <div className={`bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-xl shadow-lg transition-all duration-300 hover:border-slate-600/80 hover:shadow-cyan-500/10 ${className}`}>
+        {children}
+    </div>
+);
+
+const Button = ({ children, action, disabled, className = '', loading = false }: { children: React.ReactNode, action: () => void, disabled: boolean, className?: string, loading?: boolean }) => (
+     <button 
+        onClick={action} 
+        disabled={disabled} 
+        className={`font-semibold py-2.5 px-4 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-xl shadow-md disabled:opacity-50 disabled:transform-none disabled:shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base ${className}`}>
+        {loading && (
+             <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        )}
+        {children}
+    </button>
+);
+
+const TelemetryDisplay = ({ report }: { report: Record<string, number> | null }) => {
+    if (!report) return null;
+    return (
+        <div className="fade-in">
+        <Card className="p-5">
+            <div className="flex justify-between items-center mb-3">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    Hiệu suất Khởi tạo
+                </h2>
+            </div>
+            <div className="space-y-2 text-sm font-mono">
+                {Object.entries(report).map(([key, value]) => (
+                     <p key={key} className="flex justify-between items-baseline border-b border-slate-700/50 pb-1.5">
+                        <span className="capitalize text-slate-400">{key.replace(/_/g, ' ')}:</span> 
+                        <span className="text-cyan-400 font-bold text-base">{value.toLocaleString()} ms</span>
+                     </p>
+                ))}
+            </div>
+        </Card>
+        </div>
+    )
+};
+
+const ResultDisplay = ({ data, onCopy, copyStatus }: { data: any, onCopy: () => void, copyStatus: string }) => {
+    if (!data) return null;
+    return (
+        <div className="fade-in">
+            <Card className="p-5">
+                <div className="flex justify-between items-center mb-3">
+                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a4 4 0 014 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6a2 2 0 012 2v10a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2z" /></svg>
+                        Kết quả Truy vấn
+                    </h2>
+                    <button onClick={onCopy} className="bg-slate-700/80 hover:bg-slate-600/80 text-xs text-slate-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105">
+                        {copyStatus}
+                    </button>
+                </div>
+                <div className="space-y-2 text-base font-mono">
+                    <p className="flex justify-between items-baseline"><span className="text-slate-400">Tổng cộng:</span> <span className="text-yellow-400 font-bold text-xl">{data.total.toFixed(2)}</span></p>
+                    <p className="flex justify-between items-baseline"><span className="text-slate-400">Số hàng quét:</span> <span className="text-yellow-400 font-bold text-xl">{data.scanned.toLocaleString()}</span></p>
+                    <hr className="border-slate-700/60 my-2"/>
+                    <p className="flex justify-between items-baseline text-sm"><span className="text-slate-500">Lập kế hoạch:</span> <span className="text-slate-400">{data.planning.toFixed(2)}ms</span></p>
+                    <p className="flex justify-between items-baseline text-sm"><span className="text-slate-500">Thực thi:</span> <span className="text-slate-400">{data.execution.toFixed(2)}ms</span></p>
+                </div>
+                <details className="mt-4 text-xs text-slate-500 cursor-pointer group">
+                    <summary className="font-semibold group-hover:text-slate-300 transition">Xem kế hoạch thực thi</summary>
+                    <pre className="bg-slate-900/70 p-3 rounded-md mt-2 whitespace-pre-wrap selection:bg-cyan-500/20">{JSON.stringify(data.plan, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2)}</pre>
+                </details>
+            </Card>
         </div>
     );
 };
@@ -208,81 +284,6 @@ function App() {
         }
     };
     
-    const Card = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-        <div className={`bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-xl shadow-lg transition-all duration-300 hover:border-slate-600/80 hover:shadow-cyan-500/10 ${className}`}>
-            {children}
-        </div>
-    );
-    
-    const Button = ({ children, action, disabled, className = '' }: { children: React.ReactNode, action: () => void, disabled: boolean, className?: string }) => (
-         <button 
-            onClick={action} 
-            disabled={disabled} 
-            className={`font-semibold py-2.5 px-4 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-xl shadow-md disabled:opacity-50 disabled:transform-none disabled:shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base ${className}`}>
-            {disabled && (status.startsWith('Đang') || testing === 'running' || busy) && (
-                 <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-            )}
-            {children}
-        </button>
-    );
-
-    const Telemetry = ({ report }: { report: Record<string, number> | null }) => {
-        if (!report) return null;
-        return (
-            <div className="fade-in">
-            <Card className="p-5">
-                <div className="flex justify-between items-center mb-3">
-                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                        Hiệu suất Khởi tạo
-                    </h2>
-                </div>
-                <div className="space-y-2 text-sm font-mono">
-                    {Object.entries(report).map(([key, value]) => (
-                         <p key={key} className="flex justify-between items-baseline border-b border-slate-700/50 pb-1.5">
-                            <span className="capitalize text-slate-400">{key.replace(/_/g, ' ')}:</span> 
-                            <span className="text-cyan-400 font-bold text-base">{value.toLocaleString()} ms</span>
-                         </p>
-                    ))}
-                </div>
-            </Card>
-            </div>
-        )
-    };
-    
-    const Result = ({ data }: { data: any }) => {
-        if (!data) return null;
-        return (
-            <div className="fade-in">
-                <Card className="p-5">
-                    <div className="flex justify-between items-center mb-3">
-                        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a4 4 0 014 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6a2 2 0 012 2v10a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2z" /></svg>
-                            Kết quả Truy vấn
-                        </h2>
-                        <button onClick={() => copy('query')} className="bg-slate-700/80 hover:bg-slate-600/80 text-xs text-slate-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105">
-                            {querystatus}
-                        </button>
-                    </div>
-                    <div className="space-y-2 text-base font-mono">
-                        <p className="flex justify-between items-baseline"><span className="text-slate-400">Tổng cộng:</span> <span className="text-yellow-400 font-bold text-xl">{data.total.toFixed(2)}</span></p>
-                        <p className="flex justify-between items-baseline"><span className="text-slate-400">Số hàng quét:</span> <span className="text-yellow-400 font-bold text-xl">{data.scanned.toLocaleString()}</span></p>
-                        <hr className="border-slate-700/60 my-2"/>
-                        <p className="flex justify-between items-baseline text-sm"><span className="text-slate-500">Lập kế hoạch:</span> <span className="text-slate-400">{data.planning.toFixed(2)}ms</span></p>
-                        <p className="flex justify-between items-baseline text-sm"><span className="text-slate-500">Thực thi:</span> <span className="text-slate-400">{data.execution.toFixed(2)}ms</span></p>
-                    </div>
-                    <details className="mt-4 text-xs text-slate-500 cursor-pointer group">
-                        <summary className="font-semibold group-hover:text-slate-300 transition">Xem kế hoạch thực thi</summary>
-                        <pre className="bg-slate-900/70 p-3 rounded-md mt-2 whitespace-pre-wrap selection:bg-cyan-500/20">{JSON.stringify(data.plan, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2)}</pre>
-                    </details>
-                </Card>
-            </div>
-        );
-    };
-
     return (
         <div className="container mx-auto p-6 md:p-8 max-w-7xl">
             <header className="text-center mb-10">
@@ -301,14 +302,14 @@ function App() {
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                           Bảng điều khiển
                         </h2>
-                        <Button action={setup} disabled={status !== 'Chưa khởi tạo' && status !== 'Sẵn sàng' && status !== 'Lỗi khởi tạo'} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">
+                        <Button action={setup} disabled={status.startsWith('Đang')} loading={status.startsWith('Đang')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">
                             {status === 'Chưa khởi tạo' || status === 'Lỗi khởi tạo' ? '1. Khởi tạo & Nạp 1M bản ghi' : 'Khởi tạo lại'}
                         </Button>
                         <div className="grid grid-cols-2 gap-3 mt-3">
-                             <Button action={() => query(false)} disabled={!store || busy} className="bg-orange-600 hover:bg-orange-500 text-white">
+                             <Button action={() => query(false)} disabled={!store || busy} loading={busy} className="bg-orange-600 hover:bg-orange-500 text-white">
                                 {busy ? 'Đang chạy...' : '2. Quét Toàn bộ'}
                             </Button>
-                            <Button action={() => query(true)} disabled={!store || busy} className="bg-green-600 hover:bg-green-500 text-white">
+                            <Button action={() => query(true)} disabled={!store || busy} loading={busy} className="bg-green-600 hover:bg-green-500 text-white">
                                 {busy ? 'Đang chạy...' : '3. Dùng Chỉ mục'}
                             </Button>
                         </div>
@@ -318,12 +319,12 @@ function App() {
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           Xác minh Hệ thống
                         </h2>
-                        <Button action={verify} disabled={testing === 'running'} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
+                        <Button action={verify} disabled={testing === 'running'} loading={testing === 'running'} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
                            {testing === 'running' ? 'Đang chạy...' : 'Chạy Kiểm thử Backend'}
                         </Button>
                     </Card>
-                    <Telemetry report={report} />
-                    <Result data={result} />
+                    <TelemetryDisplay report={report} />
+                    <ResultDisplay data={result} onCopy={() => copy('query')} copyStatus={querystatus} />
                 </section>
                 
                 <section className="lg:col-span-2">

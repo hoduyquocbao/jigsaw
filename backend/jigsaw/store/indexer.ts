@@ -45,12 +45,25 @@ export class Indexer {
                 (type as Tree).load(result.sortedValues, result.sortedIndices, pointers);
                 this.indexes.set(column, type);
             } else {
-                // Fallback nếu không có conductor
+                // Fallback nếu không có conductor: xây dựng trên luồng chính
                 console.warn(`Xây dựng Tree index cho cột '${column}' trên luồng chính. Điều này có thể gây đóng băng UI.`);
-                const tempIndex = new Tree();
-                // Tạm thời gọi phương thức build giả lập nếu cần
-                // Ở đây chúng ta giả định luồng worker là chính
-                this.indexes.set(column, tempIndex);
+                
+                const values = Array.from(slice, (v: any) => BigInt(v));
+                const indices = Array.from({ length: values.length }, (_, i) => i);
+                
+                indices.sort((a, b) => {
+                    const valA = values[a];
+                    const valB = values[b];
+                    if (valA < valB) return -1;
+                    if (valA > valB) return 1;
+                    return 0;
+                });
+            
+                const sortedValues = indices.map(i => values[i]);
+                const sortedIndices = indices;
+
+                (type as Tree).load(sortedValues, sortedIndices, pointers);
+                this.indexes.set(column, type);
             }
         }
     }

@@ -1,3 +1,4 @@
+
 /**
  * @description  Thực thi các tác vụ được đăng ký, được gửi từ luồng chính.
  * @purpose      Là đơn vị thực thi độc lập, an toàn, chạy trong một luồng riêng biệt.
@@ -41,9 +42,9 @@ function generate(count) {
 
 // Tác vụ xây dựng chỉ mục Tree
 function buildTree(column) {
-    // FIX: Corrected comment to accurately describe the logic. Values are converted TO BigInt.
     // Chuyển đổi các giá trị đầu vào thành BigInt để đảm bảo việc sắp xếp là chính xác.
-    // FIX: Explicitly type `v` as `any` to resolve TypeScript error where `v` is inferred as `unknown`.
+    // FIX: Add type annotation `: any` to `v` to prevent TypeScript from inferring it as `unknown`,
+    // which is not a valid argument for the BigInt constructor.
     const values = Array.from(column, (v: any) => BigInt(v));
     const indices = Array.from({ length: values.length }, (_, i) => i);
     
