@@ -33,9 +33,9 @@ function generate(count) {
             user: Math.floor(Math.random() * 100),
             product: Math.floor(Math.random() * 1000),
             amount: Math.random() * 200,
-            // postMessage có thể xử lý BigInt, nhưng JSON không thể.
-            // Để an toàn, chúng ta gửi nó dưới dạng chuỗi và để Store xử lý việc phân tích cú pháp.
-            timestamp: BigInt(startDate + Math.random() * (endDate - startDate)).toString(),
+            // FIX: Trả về timestamp dưới dạng Number thay vì string để đảm bảo
+            // việc truyền dữ liệu giữa các luồng an toàn và nhất quán.
+            timestamp: startDate + Math.random() * (endDate - startDate),
         });
     }
     return data;

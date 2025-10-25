@@ -79,11 +79,12 @@ export class Store {
             recordKind.fields.forEach((fieldKind, fieldName) => {
                 let value = record[fieldName];
                 
-                // FIX: Xử lý chuyển đổi BigInt từ string (do worker serialization)
+                // FIX: Xử lý chuyển đổi BigInt từ string hoặc number (do worker serialization)
                 // trước khi gán vào TypedArray.
                 if (fieldKind instanceof Integer && fieldKind.bits === 64) {
                     if (typeof value !== 'bigint') {
-                        value = BigInt(value);
+                        // Làm tròn number trước khi chuyển đổi để tránh lỗi.
+                        value = BigInt(typeof value === 'number' ? Math.round(value) : value);
                     }
                 }
                 
