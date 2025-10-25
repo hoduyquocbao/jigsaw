@@ -40,11 +40,9 @@ function generate(count: number) {
 }
 
 // Tác vụ xây dựng chỉ mục Tree
-function buildTree(column: any[]) {
+function buildTree(column: ArrayLike<number | bigint>) {
     // Chuyển đổi sang BigInt để sắp xếp chính xác.
-    // FIX: Explicitly type 'v' as 'any' to resolve the 'unknown' type error when calling BigInt.
-    // This acknowledges that data passed to workers is loosely typed, while ensuring compatibility with the BigInt constructor.
-    const values = Array.from(column, (v: any) => BigInt(v));
+    const values = Array.from(column, (v) => BigInt(v));
     const indices = Array.from({ length: values.length }, (_, i) => i);
     
     indices.sort((a, b) => {
@@ -62,7 +60,7 @@ function buildTree(column: any[]) {
 }
 
 
-const registry: { [key: string]: (...args: any[]) => any } = {
+const registry: Record<string, (...args: any[]) => any> = {
     heavy,
     generate,
     buildTree,
@@ -71,7 +69,7 @@ const registry: { [key: string]: (...args: any[]) => any } = {
 // --- Kết thúc registry được nhúng ---
 
 
-self.onmessage = async (event) => {
+self.onmessage = async (event: MessageEvent) => {
     const { name, args, id } = event.data;
 
     const task = registry[name];
