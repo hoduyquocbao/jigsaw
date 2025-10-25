@@ -31,6 +31,9 @@ function App() {
     const [testReport, setTestReport] = useState<Report | null>(null);
     const [testStatus, setTestStatus] = useState<'idle' | 'running' | 'finished'>('idle');
 
+    const [workerVersion, setWorkerVersion] = useState<number | null>(null);
+    const [copyStatus, setCopyStatus] = useState('Chép');
+
     const addLog = (message: string) => {
         console.log(message);
         setLog(prev => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev].slice(0, 100));
@@ -40,8 +43,11 @@ function App() {
         addLog("Bắt đầu khởi tạo...");
         setStatus('Đang tạo dữ liệu...');
 
-        addLog("Đang tải mã nguồn worker và khởi tạo Conductor...");
-        const conductor = await Conductor.create(WORKER_URL, navigator.hardwareConcurrency);
+        const version = Date.now();
+        setWorkerVersion(version);
+        addLog(`Đang tải mã nguồn worker (phiên bản ${version}) và khởi tạo Conductor...`);
+        
+        const conductor = await Conductor.create(`${WORKER_URL}?v=${version}`, navigator.hardwareConcurrency);
         addLog("Conductor đã sẵn sàng.");
         
         const chunks = Array(navigator.hardwareConcurrency).fill(Math.ceil(1_000_000 / navigator.hardwareConcurrency));
@@ -111,6 +117,19 @@ function App() {
         addLog(`Kiểm thử hoàn tất. ${report.passed} thành công, ${report.failed} thất bại.`);
     };
 
+    const copyLog = () => {
+        if (log.length === 0) return;
+        // Đảo ngược lại để có thứ tự thời gian đúng khi sao chép
+        const logText = [...log].reverse().join('\n');
+        navigator.clipboard.writeText(logText).then(() => {
+            setCopyStatus('Đã chép!');
+            setTimeout(() => setCopyStatus('Chép'), 2000);
+        }).catch(err => {
+            console.error('Lỗi khi sao chép nhật ký: ', err);
+            addLog('Lỗi: Không thể sao chép nhật ký.');
+        });
+    };
+
 
     return (
         <div className="container mx-auto p-4 max-w-7xl">
@@ -118,6 +137,9 @@ function App() {
                 <h1 className="text-4xl font-bold text-cyan-400">Jigsaw 8.0</h1>
                 <p className="text-lg text-gray-400">Động cơ CSDL In-Memory Dạng cột & JIT-Optimized</p>
                 <p className="text-md font-mono mt-2 px-2 py-1 bg-gray-800 rounded-md inline-block">Trạng thái: {status}</p>
+                {workerVersion && (
+                    <p className="text-xs text-gray-500 font-mono mt-1">Phiên bản Worker: {workerVersion}</p>
+                )}
             </header>
 
             <main className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -158,7 +180,12 @@ function App() {
                 <section className="md:col-span-2">
                    {testStatus === 'idle' && (
                      <div className="bg-gray-800 p-4 rounded-lg h-full">
-                        <h2 className="text-xl font-semibold text-white mb-3">Nhật ký Hoạt động</h2>
+                        <div className="flex justify-between items-center mb-3">
+                            <h2 className="text-xl font-semibold text-white">Nhật ký Hoạt động</h2>
+                            <button onClick={copyLog} className="bg-gray-700 hover:bg-gray-600 text-xs text-gray-300 font-bold py-1 px-3 rounded transition-colors">
+                                {copyStatus}
+                            </button>
+                        </div>
                         <div className="font-mono text-sm text-gray-400 space-y-1 overflow-y-auto h-[calc(100vh-200px)]">
                             {log.map((line, i) => <p key={i}>{line}</p>)}
                         </div>
