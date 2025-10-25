@@ -19,8 +19,11 @@ const StatusIndicator = ({ status }: { status: string }) => {
     let colorClasses = 'bg-yellow-500/50 border-yellow-400';
     let pulse = true;
 
-    if (status === 'Chưa khởi tạo') {
+    if (status === 'Chưa khởi tạo' || status === 'Lỗi khởi tạo') {
         colorClasses = 'bg-gray-500/50 border-gray-400';
+        if (status === 'Lỗi khởi tạo') {
+            colorClasses = 'bg-red-500/50 border-red-400';
+        }
         pulse = false;
     } else if (status === 'Sẵn sàng') {
         colorClasses = 'bg-green-500/50 border-green-400';
@@ -64,46 +67,55 @@ function App() {
     };
 
     const setup = async () => {
-        addLog("Bắt đầu khởi tạo...");
-        setStatus('Đang tạo dữ liệu...');
+        try {
+            addLog("Bắt đầu khởi tạo...");
+            setStatus('Đang tạo dữ liệu...');
+    
+            const version = Date.now();
+            setWorkerVersion(version);
+            addLog(`Đang tải mã nguồn worker (phiên bản ${version}) và khởi tạo Conductor...`);
+            
+            const conductor = await Conductor.create(`${WORKER_URL}?v=${version}`, navigator.hardwareConcurrency);
+            addLog("Conductor đã sẵn sàng.");
+            
+            const chunks = Array(navigator.hardwareConcurrency).fill(Math.ceil(1_000_000 / navigator.hardwareConcurrency));
+            
+            const promises = chunks.map(count => conductor.submit('generate', count));
+            const results = await Promise.all(promises);
+            const data = ([] as any[]).concat(...results);
 
-        const version = Date.now();
-        setWorkerVersion(version);
-        addLog(`Đang tải mã nguồn worker (phiên bản ${version}) và khởi tạo Conductor...`);
-        
-        const conductor = await Conductor.create(`${WORKER_URL}?v=${version}`, navigator.hardwareConcurrency);
-        addLog("Conductor đã sẵn sàng.");
-        
-        const chunks = Array(navigator.hardwareConcurrency).fill(Math.ceil(1_000_000 / navigator.hardwareConcurrency));
-        
-        const results = await conductor.map(chunks, 'generate');
-        const data = ([] as any[]).concat(...results);
-        conductor.terminate();
-        
-        addLog(`Đã tạo ${data.length.toLocaleString()} bản ghi giao dịch.`);
-        setStatus('Đang nạp dữ liệu vào Store...');
-
-        const kind = schema.record({
-            id: schema.integer(32, true),
-            user: schema.integer(32, true),
-            product: schema.integer(32, true),
-            amount: schema.scalar(32),
-            timestamp: schema.integer(64, false)
-        });
-
-        const newStore = new Store(kind, data.length + 10);
-        newStore.add(data);
-        addLog('Nạp dữ liệu vào Store thành công.');
-        setStatus('Đang xây dựng chỉ mục...');
-
-        newStore.indexer.build('user', new Invert());
-        addLog("Đã xây dựng chỉ mục Invert trên cột 'user'.");
-        
-        newStore.indexer.build('timestamp', new Tree());
-        addLog("Đã xây dựng chỉ mục Tree trên cột 'timestamp'.");
-
-        setStore(newStore);
-        setStatus('Sẵn sàng');
+            conductor.terminate();
+            
+            addLog(`Đã tạo ${data.length.toLocaleString()} bản ghi giao dịch.`);
+            setStatus('Đang nạp dữ liệu vào Store...');
+    
+            const kind = schema.record({
+                id: schema.integer(32, true),
+                user: schema.integer(32, true),
+                product: schema.integer(32, true),
+                amount: schema.scalar(32),
+                timestamp: schema.integer(64, false)
+            });
+    
+            const newStore = new Store(kind, data.length + 10);
+            newStore.add(data);
+            addLog('Nạp dữ liệu vào Store thành công.');
+            setStatus('Đang xây dựng chỉ mục...');
+    
+            newStore.indexer.build('user', new Invert());
+            addLog("Đã xây dựng chỉ mục Invert trên cột 'user'.");
+            
+            newStore.indexer.build('timestamp', new Tree());
+            addLog("Đã xây dựng chỉ mục Tree trên cột 'timestamp'.");
+    
+            setStore(newStore);
+            setStatus('Sẵn sàng');
+        } catch (e: any) {
+            const errorMessage = `Lỗi nghiêm trọng trong quá trình khởi tạo: ${e.message}`;
+            addLog(errorMessage);
+            setStatus('Lỗi khởi tạo');
+            console.error(e);
+        }
     };
 
     const runQuery = (usePlanner: boolean) => {

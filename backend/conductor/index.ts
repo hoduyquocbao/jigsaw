@@ -165,31 +165,43 @@ export class Conductor {
     }
 
     /**
-     * @description Xử lý lỗi từ một worker.
-     * @param {number} worker Chỉ số của worker.
+     * @description Xử lý lỗi nghiêm trọng từ một worker bằng cách khởi động lại nó.
+     * @param {number} workerIndex Chỉ số của worker.
      * @param {ErrorEvent} event Sự kiện lỗi.
      * @private
      */
-    private error(worker: number, event: ErrorEvent): void {
+    private error(workerIndex: number, event: ErrorEvent): void {
+        console.error(`Lỗi nghiêm trọng từ worker ${workerIndex}: ${event.message}. Sẽ khởi động lại worker.`);
+
+        // Tìm và reject tác vụ đang chạy trên worker bị lỗi
         let id: number | null = null;
         for (const [key, task] of this.pending.entries()) {
-            if (task.worker === worker) {
+            if (task.worker === workerIndex) {
+                task.reject(new Error(`Worker ${workerIndex} failed: ${event.message}`));
                 id = key;
                 break;
             }
         }
-        
         if (id) {
-            const task = this.pending.get(id);
-            if (task) {
-                task.reject(new Error(event.message));
-                this.pending.delete(id);
-            }
+            this.pending.delete(id);
         }
         
-        console.error(`Lỗi từ worker ${worker}:`, event.message);
-        
-        this.idle.push(worker);
+        // Chấm dứt worker hỏng và tạo một worker mới thay thế
+        try {
+            this.workers[workerIndex].terminate();
+        } catch (e) {
+            // Bỏ qua lỗi nếu worker đã bị chấm dứt
+        }
+
+        if (this.url) {
+            const newWorker = new Worker(this.url);
+            newWorker.onmessage = (e) => this.finish(e.data);
+            newWorker.onerror = (e) => this.error(workerIndex, e);
+            this.workers[workerIndex] = newWorker;
+        }
+
+        // Đưa worker mới trở lại pool và tiếp tục công việc
+        this.idle.push(workerIndex);
         this.dispatch();
     }
 }
