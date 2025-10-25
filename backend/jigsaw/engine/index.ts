@@ -29,7 +29,8 @@ export class Engine {
     execute(plan: any, store: any): any {
         const key = JSON.stringify(plan, (key, value) => {
             // Replacer để xử lý BigInt một cách an toàn khi tạo khóa cache.
-            return typeof value === 'bigint' ? value.toString() + 'n' : value;
+            // Chuyển thành chuỗi số thuần túy, không có hậu tố 'n'.
+            return typeof value === 'bigint' ? value.toString() : value;
         });
         let executable = this.cache.get(key);
 

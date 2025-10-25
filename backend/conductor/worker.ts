@@ -17,13 +17,13 @@
  */
 
 // Tác vụ nặng để trình diễn xử lý song song
-function heavy(chunk: number[]): number {
+function heavy(chunk) {
     // Một phép tính vô nghĩa nhưng tốn thời gian
     return chunk.reduce((s, v) => s + Math.sqrt(v), 0);
 }
 
 // Tác vụ tạo dữ liệu mẫu
-function generate(count: number): any[] {
+function generate(count) {
     const data = [];
     const startDate = new Date(2020, 0, 1).getTime();
     const endDate = new Date(2024, 11, 31).getTime();
@@ -33,7 +33,9 @@ function generate(count: number): any[] {
             user: Math.floor(Math.random() * 100),
             product: Math.floor(Math.random() * 1000),
             amount: Math.random() * 200,
-            timestamp: BigInt(startDate + Math.random() * (endDate - startDate)),
+            // postMessage có thể xử lý BigInt, nhưng JSON không thể.
+            // Để an toàn, chúng ta gửi nó dưới dạng chuỗi và để Store xử lý việc phân tích cú pháp.
+            timestamp: BigInt(startDate + Math.random() * (endDate - startDate)).toString(),
         });
     }
     return data;
@@ -47,7 +49,7 @@ const registry = {
 // --- Kết thúc registry được nhúng ---
 
 
-self.onmessage = async (event: MessageEvent) => {
+self.onmessage = async (event) => {
     const { name, args, id } = event.data;
 
     const task = registry[name];
@@ -63,7 +65,7 @@ self.onmessage = async (event: MessageEvent) => {
         // Phản hồi có thể chứa Transferable Objects, nhưng ở đây chúng ta chỉ trả về kết quả
         self.postMessage({ id, result });
 
-    } catch (e: any) {
+    } catch (e) {
         self.postMessage({ id, error: e.message });
     }
 };
