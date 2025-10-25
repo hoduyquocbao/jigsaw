@@ -104,18 +104,11 @@ export class Store {
      /**
      * @description Thực thi một truy vấn trên dữ liệu, có đo lường hiệu suất chi tiết.
      * @param {any} query Đối tượng mô tả truy vấn.
-     * @param {boolean} useplanner Bật/tắt planner cho mục đích demo.
      * @returns {any} Kết quả của truy vấn, bao gồm các chỉ số hiệu suất.
      */
-    query(query: any, useplanner: boolean = true): any {
-        let plan;
-        
+    query(query: any): any {
         const start = performance.now();
-        if (useplanner) {
-            plan = this.planner.plan(query, this.indexer);
-        } else {
-            plan = { strategy: 'fullscan', query, filters: query.filter };
-        }
+        const plan = this.planner.plan(query, this.indexer);
         const planning = performance.now() - start;
         
         const executionstart = performance.now();

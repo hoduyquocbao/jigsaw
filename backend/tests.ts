@@ -4,14 +4,14 @@ import { Store } from './jigsaw/store';
 import { Invert } from './jigsaw/index/invert';
 import { Tree } from './jigsaw/index/tree';
 import { Conductor } from './conductor';
+import code from './conductor/worker.ts?raw';
 
-// Lấy mã nguồn worker từ DOM, tương tự như App chính
+// Mã nguồn worker giờ được import trực tiếp, đảm bảo tính nhất quán.
 function getcode(): string {
-    const element = document.getElementById('worker');
-    if (!element || !element.textContent) {
-        throw new Error("Không thể tìm thấy mã nguồn worker trong DOM cho môi trường test.");
+    if (!code) {
+        throw new Error("Không thể nạp mã nguồn worker cho môi trường test.");
     }
-    return element.textContent;
+    return code;
 }
 
 suite("Jigsaw Schema", () => {
@@ -61,7 +61,7 @@ suite("Jigsaw Store & Query Engine", () => {
             aggregate: { type: 'sum', column: 'amount' }
         };
 
-        const result = store.query(query, false);
+        const result = store.query(query); // useplanner không còn nữa
         expect(result.scanned).equal(4);
         expect(result.total).equal(125.75);
     });
@@ -76,17 +76,17 @@ suite("Jigsaw Store & Query Engine", () => {
             aggregate: { type: 'sum', column: 'amount' }
         };
         
-        const result = store.query(query, true);
+        const result = store.query(query);
         expect(result.plan.strategy).equal('index');
         expect(result.scanned).equal(2);
         expect(result.total).equal(125.75);
     });
     
-    test("should use Tree index for range queries and scan correct number of rows", async () => {
+    test("should use Tree index for range queries and scan correct number of rows", () => {
         const store = new Store(kind, 10);
         store.add(data);
-        // Giả lập build không đồng bộ
-        await store.indexer.build('timestamp', new Tree());
+        // Xây dựng đồng bộ vì không có conductor được cung cấp
+        store.indexer.build('timestamp', new Tree());
 
         const query = {
             filter: [
@@ -96,7 +96,7 @@ suite("Jigsaw Store & Query Engine", () => {
             aggregate: { type: 'sum', column: 'amount' }
         };
         
-        const result = store.query(query, true);
+        const result = store.query(query);
         expect(result.plan.strategy).equal('index');
         expect(result.scanned).equal(2); // Should only find Jan 1 and Feb 1 records
         expect(result.total).equal(150.5);

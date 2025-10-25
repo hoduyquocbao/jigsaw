@@ -4,9 +4,9 @@ import type { Report as Reportable, Result } from '../test';
 /**
  * @description  Một component React để hiển thị báo cáo kết quả kiểm thử dưới dạng thẻ.
  * @purpose      Cung cấp một giao diện người dùng rõ ràng và trực quan cho kết quả của bộ test.
- * @solves       Vấn đề thiếu terminal để hiển thị output của test runner.
+ * @solves       Vấn đề thiếu terminal để hiển thị output của test runner và xung đột định danh với model 'Report'.
  * @model        View Component.
- * @rationale    Một giao diện đồ họa cho phép phân loại, tô màu và định dạng kết quả, giúp việc xác định các bài test thất bại và gỡ lỗi trở nên nhanh chóng và hiệu quả hơn nhiều so với việc đọc văn bản thuần túy.
+ * @rationale    Một giao diện đồ họa cho phép phân loại, tô màu và định dạng kết quả, giúp việc xác định các bài test thất bại và gỡ lỗi trở nên nhanh chóng và hiệu quả hơn nhiều so với việc đọc văn bản thuần túy. Tên `Reportview` tuân thủ quy tắc `[Entity]View` để tránh xung đột.
  */
 export function Report({ report }: { report: Reportable }) {
     const [status, setStatus] = useState('Chép');

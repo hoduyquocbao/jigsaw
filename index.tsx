@@ -8,8 +8,9 @@ import { Invert } from './backend/jigsaw/index/invert';
 import { Tree } from './backend/jigsaw/index/tree';
 import { Runner } from './test';
 import type { Report as Test } from './test';
-import { Report as Testview } from './ui/report';
+import { Report as Reportview } from './ui/report';
 import { Telemetry } from './backend/telemetry';
+import code from './backend/conductor/worker.ts?raw';
 
 // Import tests to register them with the runner
 import './backend/tests.ts';
@@ -88,7 +89,7 @@ const Button: React.FC<Buttonable> = ({ children, action, disabled, className = 
         disabled={disabled} 
         className={`font-semibold py-2.5 px-4 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-xl shadow-md disabled:opacity-50 disabled:transform-none disabled:shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base ${className}`}>
         {loading && (
-             <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+             <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -104,8 +105,7 @@ const Button: React.FC<Buttonable> = ({ children, action, disabled, className = 
  * @model        View Component.
  * @rationale    Tách biệt việc hiển thị dữ liệu telemetry giúp giữ cho component chính (App) gọn gàng và tập trung vào việc điều phối.
  */
-// FIX: Renamed component from `Telemetry` to `TelemetryView` to avoid conflict with the imported `Telemetry` class.
-const TelemetryView = ({ report }: { report: Record<string, number> | null }) => {
+const Telemetryview = ({ report }: { report: Record<string, number> | null }) => {
     if (!report) return null;
     return (
         <div className="fade-in">
@@ -236,13 +236,12 @@ function App() {
             dispatch({ type: 'status', payload: 'Đang khởi tạo...' });
             telemetry.start('total');
     
-            write(`Đang khởi tạo Conductor từ mã nguồn nhúng...`);
+            write(`Đang khởi tạo Conductor với mã nguồn được quản lý...`);
             dispatch({ type: 'status', payload: 'Khởi tạo Conductor...' });
             telemetry.start('conductor');
             
-            const code = document.getElementById('worker')?.textContent;
             if (!code) {
-                throw new Error("Không thể tìm thấy mã nguồn worker trong DOM.");
+                throw new Error("Không thể nạp mã nguồn worker.");
             }
             conductor = new Conductor(code, navigator.hardwareConcurrency);
 
@@ -305,7 +304,7 @@ function App() {
         }
     };
 
-    const query = (planner: boolean) => {
+    const query = () => {
         if (!state.store || state.busy) return;
         
         dispatch({ type: 'query/start' });
@@ -324,11 +323,14 @@ function App() {
                 aggregate: { type: 'sum', column: 'amount' }
             };
     
-            write(`Đang chạy truy vấn cho user ${user} với planner=${planner}...`);
-            const response = state.store!.query(request, planner);
+            write(`Đang chạy truy vấn cho user ${user}...`);
+            const response = state.store!.query(request);
             
             dispatch({ type: 'query/finish', payload: response });
             write(`Truy vấn hoàn tất sau ${(response.planning + response.execution).toFixed(2)}ms.`);
+            const strategy = response.plan.strategy === 'fullscan' ? 'quét toàn bộ' : 'sử dụng chỉ mục';
+            write(`Chiến lược được chọn: ${strategy}.`);
+
         }, 50);
     };
 
@@ -381,12 +383,9 @@ function App() {
                         <Button action={setup} disabled={state.status.startsWith('Đang')} loading={state.status.startsWith('Đang')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">
                             {state.status === 'Chưa khởi tạo' || state.status === 'Lỗi khởi tạo' ? '1. Khởi tạo & Nạp 1M bản ghi' : 'Khởi tạo lại'}
                         </Button>
-                        <div className="grid grid-cols-2 gap-3 mt-3">
-                             <Button action={() => query(false)} disabled={!state.store || state.busy} loading={state.busy} className="bg-orange-600 hover:bg-orange-500 text-white">
-                                {state.busy ? 'Đang chạy...' : '2. Quét Toàn bộ'}
-                            </Button>
-                            <Button action={() => query(true)} disabled={!state.store || state.busy} loading={state.busy} className="bg-green-600 hover:bg-green-500 text-white">
-                                {state.busy ? 'Đang chạy...' : '3. Dùng Chỉ mục'}
+                        <div className="grid grid-cols-1 gap-3 mt-3">
+                             <Button action={query} disabled={!state.store || state.busy} loading={state.busy} className="bg-green-600 hover:bg-green-500 text-white">
+                                {state.busy ? 'Đang chạy...' : '2. Thực thi Truy vấn'}
                             </Button>
                         </div>
                     </Card>
@@ -399,8 +398,7 @@ function App() {
                            {state.testing === 'running' ? 'Đang chạy...' : 'Chạy Kiểm thử Backend'}
                         </Button>
                     </Card>
-                    {/* FIX: Updated component usage from `Telemetry` to `TelemetryView`. */}
-                    <TelemetryView report={state.report} />
+                    <Telemetryview report={state.report} />
                     <Outcome data={state.result} onCopy={() => copy('query')} copyStatus={state.querystatus} />
                 </section>
                 
@@ -408,7 +406,7 @@ function App() {
                     <Card className="p-5 h-full flex flex-col">
                         {state.test && (
                             <div className="fade-in">
-                                <Testview report={state.test} />
+                                <Reportview report={state.test} />
                                 <div className="my-4 border-t border-slate-700/60" />
                             </div>
                         )}

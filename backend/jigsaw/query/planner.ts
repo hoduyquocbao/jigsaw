@@ -7,8 +7,8 @@ import { Tree } from '../index/tree';
  * @purpose      Chọn chiến lược tốt nhất để lấy dữ liệu, ưu tiên sử dụng chỉ mục thay vì quét toàn bộ.
  * @solves       Vấn đề thực thi truy vấn một cách "ngây thơ" bằng cách luôn quét toàn bộ dữ liệu.
  * @model        Bộ tối ưu hóa Truy vấn dựa trên Quy tắc (Rule-Based Query Optimizer).
- * @complexity   O(F * I) với F là số bộ lọc, I là số chỉ mục.
- * @rationale    Sự tồn tại của Planner tách biệt hoàn toàn logic "người dùng muốn gì" (truy vấn) khỏi "hệ thống nên làm như thế nào" (kế hoạch). Phiên bản này áp dụng chiến lược "chọn chỉ mục tốt nhất, sau đó lọc" (index-then-filter), một heuristic cực kỳ hiệu quả giúp giảm nhanh tập dữ liệu cần quét mà không cần các phép tính giao tập hợp (set intersection) tốn kém trong giai đoạn lập kế hoạch.
+ * @complexity   O(F) với F là số bộ lọc trong truy vấn.
+ * @rationale    Sự tồn tại của Planner tách biệt hoàn toàn logic "người dùng muốn gì" (truy vấn) khỏi "hệ thống nên làm như thế nào" (kế hoạch). Phiên bản này áp dụng chiến lược "chọn chỉ mục có độ chọn lọc cao nhất" (most selective index first). Quy tắc heuristic là: một chỉ mục Invert cho toán tử `eq` được ưu tiên hơn một chỉ mục Tree cho các toán tử phạm vi. Đây là một phương pháp đơn giản nhưng cực kỳ hiệu quả.
  */
 export class Planner {
      /**
@@ -19,60 +19,57 @@ export class Planner {
      */
     plan(query: any, indexer: any): any {
         const { filter } = query;
-        const candidates = [];
-        const groups: { [key: string]: any[] } = {};
+        let best: any = null;
 
+        // Ưu tiên 1: Tìm bộ lọc `eq` có thể sử dụng chỉ mục Invert
         for (const f of filter) {
-            if (!groups[f.column]) {
-                groups[f.column] = [];
+            if (f.op === 'eq') {
+                const index = indexer.get(f.column);
+                if (index instanceof Invert) {
+                    best = { filter: f, type: 'invert' };
+                    break; 
+                }
             }
-            groups[f.column].push(f);
         }
 
-        for (const column in groups) {
-            const index = indexer.get(column);
-            if (!index) continue;
-
-            const filters = groups[column];
-            
-            if (index instanceof Invert && filters.some(f => f.op === 'eq')) {
-                // Chi phí 1: Tìm kiếm bằng nhau trên Invert là lựa chọn có chọn lọc nhất.
-                candidates.push({ column, cost: 1, type: 'invert' });
-            } else if (index instanceof Tree) {
-                // Chi phí 10: Quét phạm vi trên Tree ít chọn lọc hơn.
-                candidates.push({ column, cost: 10, type: 'tree' });
+        // Ưu tiên 2: Nếu không có, tìm bộ lọc phạm vi có thể dùng chỉ mục Tree
+        if (!best) {
+            for (const f of filter) {
+                if (f.op === 'gte' || f.op === 'lte') {
+                     const index = indexer.get(f.column);
+                     if (index instanceof Tree) {
+                         best = { filter: f, type: 'tree' };
+                         break;
+                     }
+                }
             }
         }
         
-        if (candidates.length === 0) {
+        if (!best) {
             return { strategy: 'fullscan', query, filters: filter };
         }
         
-        // Sắp xếp các ứng viên, chọn cái có chi phí thấp nhất (chọn lọc nhất)
-        candidates.sort((a, b) => a.cost - b.cost);
-        const best = candidates[0];
-        
         const index_plan = {
             type: best.type,
-            column: best.column,
+            column: best.filter.column,
             value: undefined,
             min: undefined,
             max: undefined,
         };
 
         if (best.type === 'invert') {
-            const filter = groups[best.column].find(f => f.op === 'eq');
-            index_plan.value = filter.value;
+            index_plan.value = best.filter.value;
         } else if (best.type === 'tree') {
-            const range = groups[best.column];
-            const gte = range.find(f => f.op === 'gte');
-            const lte = range.find(f => f.op === 'lte');
+            // Tìm tất cả các bộ lọc phạm vi cho cùng một cột
+            const range = filter.filter((f: any) => f.column === best.filter.column && (f.op === 'gte' || f.op === 'lte'));
+            const gte = range.find((f: any) => f.op === 'gte');
+            const lte = range.find((f: any) => f.op === 'lte');
             index_plan.min = gte?.value;
             index_plan.max = lte?.value;
         }
 
         // Các bộ lọc chưa được sử dụng bởi chỉ mục sẽ được áp dụng sau
-        const remainder = filter.filter(f => f.column !== best.column);
+        const remainder = filter.filter((f: any) => f.column !== best.filter.column);
 
         return { 
             strategy: 'index', 
