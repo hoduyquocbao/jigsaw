@@ -88,11 +88,8 @@ export class Store {
             recordKind.fields.forEach((fieldKind, fieldName) => {
                 let value = record[fieldName];
                 
-                // FIX: Xử lý chuyển đổi BigInt từ string hoặc number (do worker serialization)
-                // trước khi gán vào TypedArray.
                 if (fieldKind instanceof Integer && fieldKind.bits === 64) {
                     if (typeof value !== 'bigint') {
-                        // Làm tròn number trước khi chuyển đổi để tránh lỗi.
                         const num = Number(value);
                         value = BigInt(isNaN(num) ? 0 : Math.round(num));
                     }
@@ -106,18 +103,30 @@ export class Store {
     }
     
      /**
-     * @description Thực thi một truy vấn trên dữ liệu.
+     * @description Thực thi một truy vấn trên dữ liệu, có đo lường hiệu suất chi tiết.
      * @param {any} query Đối tượng mô tả truy vấn.
      * @param {boolean} useplanner Cờ để bật/tắt planner cho mục đích demo.
-     * @returns {any} Kết quả của truy vấn.
+     * @returns {any} Kết quả của truy vấn, bao gồm các chỉ số hiệu suất.
      */
     query(query: any, useplanner: boolean = true): any {
+        let plan;
+        
+        const planningStart = performance.now();
         if (useplanner) {
-            const plan = this.planner.plan(query, this.indexer);
-            return this.engine.execute(plan, this);
+            plan = this.planner.plan(query, this.indexer);
         } else {
-            const plan = { strategy: 'fullscan', query };
-            return this.engine.execute(plan, this);
+            plan = { strategy: 'fullscan', query };
         }
+        const planningTime = performance.now() - planningStart;
+        
+        const executionStart = performance.now();
+        const result = this.engine.execute(plan, this);
+        const executionTime = performance.now() - executionStart;
+
+        return {
+            ...result,
+            planning: planningTime,
+            execution: executionTime,
+        };
     }
 }

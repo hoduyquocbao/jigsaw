@@ -28,26 +28,23 @@ export class Engine {
      */
     execute(plan: any, store: any): any {
         const key = JSON.stringify(plan, (key, value) => {
-            // Replacer để xử lý BigInt một cách an toàn khi tạo khóa cache.
-            // Chuyển thành chuỗi số thuần túy, không có hậu tố 'n'.
             return typeof value === 'bigint' ? value.toString() : value;
         });
         let executable = this.cache.get(key);
 
-        if (executable) {
-            // Lần 2 trở đi: Chạy mã đã biên dịch từ cache.
-            return executable();
-        }
+        let result;
 
-        if (plan.strategy === 'fullscan') {
-             // Lần đầu: Biên dịch một hàm chuyên biệt, an toàn.
+        if (executable) {
+            result = executable();
+        } else if (plan.strategy === 'fullscan') {
             executable = this.compile(plan, store);
             this.cache.set(key, executable);
-            return executable();
+            result = executable();
         } else {
-            // Đối với truy vấn chỉ mục, dùng interpreter vì nó đủ nhanh.
-            return this.interpreter.run(plan, store);
+            result = this.interpreter.run(plan, store);
         }
+        
+        return { ...result, plan };
     }
 
     /**
@@ -61,8 +58,6 @@ export class Engine {
         const columns = store.columns;
         const count = store.count();
 
-        // Trả về một hàm closure được chuyên biệt hóa.
-        // Đây là một kỹ thuật tối ưu hóa phổ biến và hoàn toàn an toàn.
         return () => {
             let total = 0;
             let scanned = 0;
@@ -71,7 +66,6 @@ export class Engine {
                 scanned++;
                 let match = true;
                 
-                // Vòng lặp filter được "unroll" vào đây
                 for (const f of filter) {
                     const value = columns[f.column][i];
                     switch (f.op) {
@@ -85,14 +79,16 @@ export class Engine {
                             if (value > f.value) { match = false; }
                             break;
                     }
-                    if (!match) break; // Tối ưu hóa: thoát sớm
+                    if (!match) break;
                 }
                 
                 if (match) {
-                    total += columns[aggregate.column][i];
+                    if (aggregate.type === 'sum') {
+                        total += columns[aggregate.column][i];
+                    }
                 }
             }
-            return { total, scanned, plan };
+            return { total, scanned };
         };
     }
 }

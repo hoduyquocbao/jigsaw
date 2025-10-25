@@ -3,17 +3,19 @@ import { createRoot } from 'react-dom/client';
 import { Conductor } from './backend/conductor';
 import { Store } from './backend/jigsaw/store';
 import * as schema from './backend/jigsaw/schema';
-// FIX: Changed import path to point to the correct files for Invert and Tree.
 import { Invert } from './backend/jigsaw/index/invert';
 import { Tree } from './backend/jigsaw/index/tree';
 import { Runner } from './test';
-import type { Report } from './test';
+import type { Report as TestReportType } from './test';
 import { Report as ReportUI } from './ui/report';
+import { Telemetry } from './backend/telemetry';
 
 // Import tests to register them with the runner
 import './backend/tests.ts';
 
 const WORKER_URL = 'https://raw.githubusercontent.com/hoduyquocbao/jigsaw/main/backend/conductor/worker.ts';
+
+const telemetry = new Telemetry();
 
 const StatusIndicator = ({ status }: { status: string }) => {
     let colorClasses = 'bg-yellow-500/50 border-yellow-400';
@@ -55,39 +57,52 @@ function App() {
     const [status, setStatus] = useState('Chưa khởi tạo');
     const [queryResult, setQueryResult] = useState<any>(null);
     
-    const [testReport, setTestReport] = useState<Report | null>(null);
+    const [testReport, setTestReport] = useState<TestReportType | null>(null);
     const [testStatus, setTestStatus] = useState<'idle' | 'running' | 'finished'>('idle');
+    const [telemetryReport, setTelemetryReport] = useState<Record<string, number> | null>(null);
+    const [isQuerying, setIsQuerying] = useState(false);
 
     const [workerVersion, setWorkerVersion] = useState<number | null>(null);
     const [copyStatus, setCopyStatus] = useState('Chép');
 
     const addLog = (message: string) => {
         console.log(message);
-        setLog(prev => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev].slice(0, 100));
+        const timestamp = new Date();
+        const formattedTime = `${timestamp.toLocaleTimeString()}.${timestamp.getMilliseconds().toString().padStart(3, '0')}`;
+        setLog(prev => [`[${formattedTime}] ${message}`, ...prev].slice(0, 100));
     };
 
     const setup = async () => {
         try {
+            telemetry.reset();
             addLog("Bắt đầu khởi tạo...");
-            setStatus('Đang tạo dữ liệu...');
+            setStatus('Đang khởi tạo...');
+            telemetry.start('total');
     
             const version = Date.now();
             setWorkerVersion(version);
             addLog(`Đang tải mã nguồn worker (phiên bản ${version}) và khởi tạo Conductor...`);
+            setStatus('Khởi tạo Conductor...');
+            telemetry.start('conductor');
             
             const conductor = await Conductor.create(`${WORKER_URL}?v=${version}`, navigator.hardwareConcurrency);
+            telemetry.end('conductor');
             addLog("Conductor đã sẵn sàng.");
             
+            setStatus('Đang tạo dữ liệu song song...');
+            telemetry.start('generation');
             const chunks = Array(navigator.hardwareConcurrency).fill(Math.ceil(1_000_000 / navigator.hardwareConcurrency));
             
             const promises = chunks.map(count => conductor.submit('generate', count));
             const results = await Promise.all(promises);
             const data = ([] as any[]).concat(...results);
 
+            telemetry.end('generation');
             conductor.terminate();
             
             addLog(`Đã tạo ${data.length.toLocaleString()} bản ghi giao dịch.`);
             setStatus('Đang nạp dữ liệu vào Store...');
+            telemetry.start('loading');
     
             const kind = schema.record({
                 id: schema.integer(32, true),
@@ -99,14 +114,21 @@ function App() {
     
             const newStore = new Store(kind, data.length + 10);
             newStore.add(data);
+            telemetry.end('loading');
             addLog('Nạp dữ liệu vào Store thành công.');
+            
             setStatus('Đang xây dựng chỉ mục...');
+            telemetry.start('indexing');
     
             newStore.indexer.build('user', new Invert());
             addLog("Đã xây dựng chỉ mục Invert trên cột 'user'.");
             
             newStore.indexer.build('timestamp', new Tree());
             addLog("Đã xây dựng chỉ mục Tree trên cột 'timestamp'.");
+            
+            telemetry.end('indexing');
+            telemetry.end('total');
+            setTelemetryReport(telemetry.report());
     
             setStore(newStore);
             setStatus('Sẵn sàng');
@@ -119,33 +141,40 @@ function App() {
     };
 
     const runQuery = (usePlanner: boolean) => {
-        if (!store) return;
+        if (!store || isQuerying) return;
         
-        const user = 42;
-        const start = BigInt(new Date('2023-01-01').getTime());
-        const end = BigInt(new Date('2023-03-31').getTime());
-
-        const query = {
-            filter: [
-                { column: 'user', op: 'eq', value: user },
-                { column: 'timestamp', op: 'gte', value: start },
-                { column: 'timestamp', op: 'lte', value: end },
-            ],
-            aggregate: { type: 'sum', column: 'amount' }
-        };
-
-        addLog(`Đang chạy truy vấn cho user ${user} với planner=${usePlanner}...`);
-        const startTime = performance.now();
-        const result = store.query(query, usePlanner);
-        const duration = performance.now() - startTime;
+        setIsQuerying(true);
+        setQueryResult(null);
         
-        setQueryResult(result);
-        addLog(`Truy vấn hoàn tất sau ${duration.toFixed(2)}ms.`);
+        // Chạy trong setTimeout để UI có thời gian cập nhật trạng thái loading
+        setTimeout(() => {
+            const user = 42;
+            const start = BigInt(new Date('2023-01-01').getTime());
+            const end = BigInt(new Date('2023-03-31').getTime());
+    
+            const query = {
+                filter: [
+                    { column: 'user', op: 'eq', value: user },
+                    { column: 'timestamp', op: 'gte', value: start },
+                    { column: 'timestamp', op: 'lte', value: end },
+                ],
+                aggregate: { type: 'sum', column: 'amount' }
+            };
+    
+            addLog(`Đang chạy truy vấn cho user ${user} với planner=${usePlanner}...`);
+            const startTime = performance.now();
+            const result = store.query(query, usePlanner);
+            const duration = performance.now() - startTime;
+            
+            setQueryResult(result);
+            addLog(`Truy vấn hoàn tất sau ${duration.toFixed(2)}ms.`);
+            setIsQuerying(false);
+        }, 50);
     };
 
     const runTests = async () => {
         setTestStatus('running');
-        setTestReport(null); // Xóa báo cáo cũ khi bắt đầu chạy
+        setTestReport(null);
         addLog("Bắt đầu chạy bộ kiểm thử backend...");
         const runner = new Runner();
         const report = await runner.run();
@@ -156,7 +185,6 @@ function App() {
 
     const copyLog = () => {
         if (log.length === 0) return;
-        // Đảo ngược lại để có thứ tự thời gian đúng khi sao chép
         const logText = [...log].reverse().join('\n');
         navigator.clipboard.writeText(logText).then(() => {
             setCopyStatus('Đã chép!');
@@ -177,11 +205,34 @@ function App() {
          <button 
             onClick={onClick} 
             disabled={disabled} 
-            className={`font-bold py-2 px-4 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-1 hover:shadow-xl shadow-md disabled:opacity-50 disabled:transform-none disabled:shadow-md disabled:cursor-not-allowed ${className}`}>
+            className={`font-bold py-2 px-4 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-1 hover:shadow-xl shadow-md disabled:opacity-50 disabled:transform-none disabled:shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 ${className}`}>
+            {disabled && isQuerying && (
+                 <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            )}
             {children}
         </button>
     );
 
+    const TelemetryDisplay = ({ report }: { report: Record<string, number> | null }) => {
+        if (!report) return null;
+        const entries = Object.entries(report);
+        return (
+            <Card className="p-5">
+                <h2 className="text-xl font-semibold text-white mb-3">Báo cáo Hiệu suất Khởi tạo</h2>
+                <div className="space-y-2 text-sm font-mono">
+                    {entries.map(([key, value]) => (
+                         <p key={key} className="flex justify-between items-baseline border-b border-gray-700/50 pb-1">
+                            <span className="capitalize text-gray-400">{key.replace(/_/g, ' ')}:</span> 
+                            <span className="text-cyan-400 font-bold text-base">{value.toLocaleString()} ms</span>
+                         </p>
+                    ))}
+                </div>
+            </Card>
+        )
+    };
 
     return (
         <div className="container mx-auto p-6 md:p-8 max-w-7xl">
@@ -202,11 +253,11 @@ function App() {
                             1. Khởi tạo & Nạp 1M bản ghi
                         </Button>
                         <div className="grid grid-cols-2 gap-3 mt-3">
-                             <Button onClick={() => runQuery(false)} disabled={!store} className="bg-orange-600 hover:bg-orange-500 text-white">
-                                2. Quét toàn bộ
+                             <Button onClick={() => runQuery(false)} disabled={!store || isQuerying} className="bg-orange-600 hover:bg-orange-500 text-white">
+                                {isQuerying ? 'Đang chạy...' : '2. Quét toàn bộ'}
                             </Button>
-                            <Button onClick={() => runQuery(true)} disabled={!store} className="bg-green-600 hover:bg-green-500 text-white">
-                                3. Dùng Chỉ mục
+                            <Button onClick={() => runQuery(true)} disabled={!store || isQuerying} className="bg-green-600 hover:bg-green-500 text-white">
+                                {isQuerying ? 'Đang chạy...' : '3. Dùng Chỉ mục'}
                             </Button>
                         </div>
                     </Card>
@@ -216,12 +267,16 @@ function App() {
                            {testStatus === 'running' ? 'Đang chạy...' : 'Chạy Kiểm thử Backend'}
                         </Button>
                     </Card>
+                    <TelemetryDisplay report={telemetryReport} />
                     {queryResult && (
                         <Card className="p-5">
                              <h2 className="text-xl font-semibold text-white mb-3">Kết quả Truy vấn</h2>
-                             <div className="space-y-2 text-lg">
-                                <p className="flex justify-between items-baseline"><span className="font-bold text-gray-400">Tổng cộng:</span> <span className="text-yellow-400 font-mono text-2xl">{queryResult.total.toFixed(2)}</span></p>
-                                <p className="flex justify-between items-baseline"><span className="font-bold text-gray-400">Số hàng đã quét:</span> <span className="text-yellow-400 font-mono text-2xl">{queryResult.scanned.toLocaleString()}</span></p>
+                             <div className="space-y-2 text-base font-mono">
+                                <p className="flex justify-between items-baseline"><span className="text-gray-400">Tổng cộng:</span> <span className="text-yellow-400 font-bold text-xl">{queryResult.total.toFixed(2)}</span></p>
+                                <p className="flex justify-between items-baseline"><span className="text-gray-400">Số hàng quét:</span> <span className="text-yellow-400 font-bold text-xl">{queryResult.scanned.toLocaleString()}</span></p>
+                                <hr className="border-gray-700 my-2"/>
+                                <p className="flex justify-between items-baseline text-sm"><span className="text-gray-500">Lập kế hoạch:</span> <span className="text-gray-400">{queryResult.planning.toFixed(2)}ms</span></p>
+                                <p className="flex justify-between items-baseline text-sm"><span className="text-gray-500">Thực thi:</span> <span className="text-gray-400">{queryResult.execution.toFixed(2)}ms</span></p>
                              </div>
                              <details className="mt-3 text-xs text-gray-500 cursor-pointer">
                                 <summary className="font-semibold">Xem kế hoạch thực thi</summary>

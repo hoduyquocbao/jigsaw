@@ -21,17 +21,32 @@ export class Tree {
     }
 
     private build(column: any[], pointers: Pointer[]): void {
-        // FIX: Chuyển đổi TypedArray thành một mảng thông thường trước khi gọi .map().
-        // Điều này ngăn ngừa lỗi khi .map() của TypedArray cố gắng ép kiểu một mảng ([value, pointer])
-        // thành một giá trị BigInt duy nhất.
         this.sorted = Array.from(column).map((value, i) => [value, pointers[i]]);
         
-        // Xử lý BigInt khi sắp xếp
         this.sorted.sort((a, b) => {
             if (a[0] < b[0]) return -1;
             if (a[0] > b[0]) return 1;
             return 0;
         });
+    }
+
+    /**
+     * @description Tìm kiếm nhị phân để tìm chỉ số của phần tử đầu tiên >= giá trị cho trước.
+     * @param {any} value Giá trị cần tìm.
+     * @returns {number} Chỉ số của phần tử tìm thấy.
+     */
+    private findStart(value: any): number {
+        let low = 0;
+        let high = this.sorted.length;
+        while (low < high) {
+            const mid = Math.floor(low + (high - low) / 2);
+            if (this.sorted[mid][0] < value) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        return low;
     }
 
     /**
@@ -42,26 +57,23 @@ export class Tree {
      */
     find(min: any, max: any): Set<Pointer> {
         const results = new Set<Pointer>();
-
-        // Chuyển đổi tường minh và an toàn các giá trị biên thành BigInt.
-        // Điều này ngăn ngừa lỗi "Cannot mix BigInt and other types" hoặc lỗi parsing
-        // nếu `min` hoặc `max` được truyền vào dưới dạng string hoặc number.
         const minVal = min !== undefined && min !== null ? BigInt(min) : null;
         const maxVal = max !== undefined && max !== null ? BigInt(max) : null;
+        
+        if (minVal === null && maxVal === null) return new Set();
 
-        for (const [value, pointer] of this.sorted) {
-            const checkMin = minVal === null || value >= minVal;
-            const checkMax = maxVal === null || value <= maxVal;
+        const start = minVal !== null ? this.findStart(minVal) : 0;
 
-            if (checkMin && checkMax) {
-                results.add(pointer);
-            }
+        for (let i = start; i < this.sorted.length; i++) {
+            const [value, pointer] = this.sorted[i];
             
-            // Tối ưu hóa: dừng sớm nếu đã vượt qua phạm vi
             if (maxVal !== null && value > maxVal) {
-                break;
+                break; // Tối ưu hóa: dừng sớm khi đã vượt qua phạm vi
             }
+
+            results.add(pointer);
         }
+        
         return results;
     }
 }

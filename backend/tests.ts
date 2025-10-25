@@ -1,7 +1,6 @@
 import { suite, test, expect } from '../test';
 import * as schema from './jigsaw/schema';
 import { Store } from './jigsaw/store';
-// FIX: Changed import path to point to the correct files for Invert and Tree.
 import { Invert } from './jigsaw/index/invert';
 import { Tree } from './jigsaw/index/tree';
 import { Conductor } from './conductor';
@@ -37,12 +36,13 @@ suite("Jigsaw Store & Query Engine", () => {
         { id: 1, user: 10, amount: 100.5, timestamp: BigInt(1704067200000) }, // 2024-01-01
         { id: 2, user: 20, amount: 50.0,  timestamp: BigInt(1706745600000) }, // 2024-02-01
         { id: 3, user: 10, amount: 25.25, timestamp: BigInt(1709251200000) }, // 2024-03-01
+        { id: 4, user: 30, amount: 10.0,  timestamp: BigInt(1709337600000) }, // 2024-03-02
     ];
     
     test("should add data and maintain correct count", () => {
         const store = new Store(kind, 10);
         store.add(data);
-        expect(store.count()).equal(3);
+        expect(store.count()).equal(4);
     });
 
     test("should perform a full scan query correctly", () => {
@@ -55,7 +55,7 @@ suite("Jigsaw Store & Query Engine", () => {
         };
 
         const result = store.query(query, false);
-        expect(result.scanned).equal(3);
+        expect(result.scanned).equal(4);
         expect(result.total).equal(125.75);
     });
 
@@ -75,22 +75,22 @@ suite("Jigsaw Store & Query Engine", () => {
         expect(result.total).equal(125.75);
     });
     
-    test("should use Tree index for range queries", () => {
+    test("should use Tree index for range queries and scan correct number of rows", () => {
         const store = new Store(kind, 10);
         store.add(data);
         store.indexer.build('timestamp', new Tree());
 
         const query = {
             filter: [
-                { column: 'timestamp', op: 'gte', value: BigInt(1704067200000) },
-                { column: 'timestamp', op: 'lte', value: BigInt(1707004800000) } // 2024-02-04
+                { column: 'timestamp', op: 'gte', value: BigInt(1704067200000) }, // >= Jan 1
+                { column: 'timestamp', op: 'lte', value: BigInt(1707004800000) } // <= Feb 4
             ],
             aggregate: { type: 'sum', column: 'amount' }
         };
         
         const result = store.query(query, true);
         expect(result.plan.strategy).equal('index');
-        expect(result.scanned).equal(2);
+        expect(result.scanned).equal(2); // Should only find Jan 1 and Feb 1 records
         expect(result.total).equal(150.5);
     });
 });
@@ -110,9 +110,6 @@ suite("Conductor Worker Pool", () => {
         const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         const chunks = [data.slice(0, 5), data.slice(5)];
         
-        // FIX: The test was misusing `conductor.map`. `map` is for auto-chunking a flat array.
-        // To test parallel execution of pre-defined chunks, we should use `submit` with `Promise.all`.
-        // This correctly reflects the test's intent and structure.
         const promises = chunks.map(chunk => conductor.submit('heavy', chunk));
         const results = await Promise.all(promises);
         conductor.terminate();
@@ -122,7 +119,6 @@ suite("Conductor Worker Pool", () => {
 
         expect(results.length).equal(2);
         
-        // Use a tolerance for floating point comparisons
         const tolerance = 1e-9;
         expect(Math.abs(results[0] - expected1) < tolerance).truthy();
         expect(Math.abs(results[1] - expected2) < tolerance).truthy();

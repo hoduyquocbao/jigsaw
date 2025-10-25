@@ -21,9 +21,11 @@ export class Interpreter {
 
         for (const pointer of pointers) {
             const index = pointer.value();
-            total += columns[aggregate.column][index];
+            if (aggregate.type === 'sum') {
+                total += columns[aggregate.column][index];
+            }
         }
 
-        return { total, scanned: pointers.size, plan };
+        return { total, scanned: pointers.size };
     }
 }
