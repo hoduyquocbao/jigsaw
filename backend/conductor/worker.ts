@@ -10,20 +10,20 @@
 
 /**
  * @description  Một registry tập trung cho tất cả các hàm có thể được thực thi bởi Conductor.
- * @purpose      Loại bỏ rủi ro an ninh và các vấn đề bảo trì của việc thực thi mã động (`new Function`).
+ * @purpose      Loại bỏ rủi ro an ninh và các vấn-đề bảo trì của việc thực thi mã động (`new Function`).
  * @solves       Cung cấp một "allow-list" các tác vụ, đảm bảo chỉ mã nguồn đã được kiểm duyệt mới có thể chạy.
  * @model        Mô hình Registry.
  * @rationale    Đây là một mẫu thiết kế bảo mật tiêu chuẩn. Bằng cách định nghĩa trước các tác vụ, chúng ta cho phép các công cụ như TypeScript và Webpack phân tích, tối ưu hóa và đóng gói mã nguồn một cách chính xác, đồng thời ngăn chặn hoàn toàn các cuộc tấn công chèn mã.
  */
 
 // Tác vụ nặng để trình diễn xử lý song song
-function heavy(chunk: number[]) {
+function heavy(chunk) {
     // Một phép tính vô nghĩa nhưng tốn thời gian
     return chunk.reduce((s, v) => s + Math.sqrt(v), 0);
 }
 
 // Tác vụ tạo dữ liệu mẫu
-function generate(count: number) {
+function generate(count) {
     const data = [];
     const startDate = new Date(2020, 0, 1).getTime();
     const endDate = new Date(2024, 11, 31).getTime();
@@ -40,9 +40,11 @@ function generate(count: number) {
 }
 
 // Tác vụ xây dựng chỉ mục Tree
-function buildTree(column: ArrayLike<number | bigint>) {
+function buildTree(column) {
     // Chuyển đổi sang BigInt để sắp xếp chính xác.
-    const values = Array.from(column, (v) => BigInt(v));
+    // FIX: Loại bỏ chú thích kiểu `: any` để đảm bảo mã là JavaScript thuần túy.
+    // FIX: Added an explicit `any` type to `v` to resolve a TypeScript error where its type was inferred as `unknown`, which is incompatible with the `BigInt` constructor.
+    const values = Array.from(column, (v: any) => BigInt(v));
     const indices = Array.from({ length: values.length }, (_, i) => i);
     
     indices.sort((a, b) => {
@@ -60,7 +62,7 @@ function buildTree(column: ArrayLike<number | bigint>) {
 }
 
 
-const registry: Record<string, (...args: any[]) => any> = {
+const registry = {
     heavy,
     generate,
     buildTree,
@@ -69,7 +71,7 @@ const registry: Record<string, (...args: any[]) => any> = {
 // --- Kết thúc registry được nhúng ---
 
 
-self.onmessage = async (event: MessageEvent) => {
+self.onmessage = async (event) => {
     const { name, args, id } = event.data;
 
     const task = registry[name];
@@ -85,7 +87,8 @@ self.onmessage = async (event: MessageEvent) => {
         // Phản hồi có thể chứa Transferable Objects, nhưng ở đây chúng ta chỉ trả về kết quả
         self.postMessage({ id, result });
 
-    } catch (e: any) {
-        self.postMessage({ id, error: e.message });
+    } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        self.postMessage({ id, error: message });
     }
 };
