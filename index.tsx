@@ -13,6 +13,8 @@ import { Report as ReportUI } from './ui/report';
 // Import tests to register them with the runner
 import './backend/tests.ts';
 
+const WORKER_URL = 'https://raw.githubusercontent.com/hoduyquocbao/jigsaw/main/backend/conductor/worker.ts';
+
 /**
  * @description  Component chính của ứng dụng, trình diễn kiến trúc Jigsaw và Conductor.
  * @purpose      Cung cấp một giao diện người dùng tương tác để chạy các tác vụ nặng, thực hiện truy vấn, và xác minh tính đúng đắn của hệ thống backend thông qua bộ test tích hợp.
@@ -39,7 +41,7 @@ function App() {
         setStatus('Đang tạo dữ liệu...');
 
         addLog("Đang tải mã nguồn worker và khởi tạo Conductor...");
-        const conductor = await Conductor.create('/backend/conductor/worker.ts', navigator.hardwareConcurrency);
+        const conductor = await Conductor.create(WORKER_URL, navigator.hardwareConcurrency);
         addLog("Conductor đã sẵn sàng.");
         
         const chunks = Array(navigator.hardwareConcurrency).fill(Math.ceil(1_000_000 / navigator.hardwareConcurrency));

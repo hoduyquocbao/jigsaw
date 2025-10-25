@@ -6,6 +6,8 @@ import { Invert } from './jigsaw/index/invert';
 import { Tree } from './jigsaw/index/tree';
 import { Conductor } from './conductor';
 
+const WORKER_URL = 'https://raw.githubusercontent.com/hoduyquocbao/jigsaw/main/backend/conductor/worker.ts';
+
 suite("Jigsaw Schema", () => {
     test("should define and get kinds correctly", () => {
         const s = new schema.Schema();
@@ -96,7 +98,7 @@ suite("Jigsaw Store & Query Engine", () => {
 suite("Conductor Worker Pool", () => {
     
     test("should execute a simple task and return a result", async () => {
-        const conductor = await Conductor.create('/backend/conductor/worker.ts', 1);
+        const conductor = await Conductor.create(WORKER_URL, 1);
         const result = await conductor.submit('generate', 5);
         conductor.terminate();
         expect(result.length).equal(5);
@@ -104,7 +106,7 @@ suite("Conductor Worker Pool", () => {
     });
     
     test("should execute map operation in parallel", async () => {
-        const conductor = await Conductor.create('/backend/conductor/worker.ts', 4);
+        const conductor = await Conductor.create(WORKER_URL, 4);
         const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         
         // The 'heavy' task in worker is a reduce, so we map data to chunks
