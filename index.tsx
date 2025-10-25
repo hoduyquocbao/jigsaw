@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Conductor } from './backend/conductor';
@@ -44,13 +45,30 @@ const Indicator = ({ status }: { status: string }) => {
     );
 };
 
-const Card = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+// FIX: Refactored component to use React.FC and an explicit interface for props.
+// This resolves a series of type errors related to the 'children' prop by providing a more robust definition for the type checker.
+interface CardProps {
+    children: React.ReactNode;
+    className?: string;
+}
+
+const Card: React.FC<CardProps> = ({ children, className = '' }) => (
     <div className={`bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-xl shadow-lg transition-all duration-300 hover:border-slate-600/80 hover:shadow-cyan-500/10 ${className}`}>
         {children}
     </div>
 );
 
-const Button = ({ children, action, disabled, className = '', loading = false }: { children: React.ReactNode, action: () => void, disabled: boolean, className?: string, loading?: boolean }) => (
+// FIX: Refactored component to use React.FC and an explicit interface for props.
+// This resolves a series of type errors related to the 'children' prop by providing a more robust definition for the type checker.
+interface ButtonProps {
+    children: React.ReactNode;
+    action: () => void;
+    disabled: boolean;
+    className?: string;
+    loading?: boolean;
+}
+
+const Button: React.FC<ButtonProps> = ({ children, action, disabled, className = '', loading = false }) => (
      <button 
         onClick={action} 
         disabled={disabled} 
