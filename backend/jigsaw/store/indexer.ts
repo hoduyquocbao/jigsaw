@@ -1,4 +1,3 @@
-
 import { Pointer } from './pointer';
 import { Invert } from '../index/invert';
 import { Tree } from '../index/tree';
@@ -27,10 +26,10 @@ export class Indexer {
     build(column: string, type: Invert | Tree): void {
         const data = this.store.columns[column];
         if (!data) {
-            throw new Error(`Column '${column}' does not exist.`);
+            throw new Error(`Cột '${column}' không tồn tại.`);
         }
         
-        const pointers = this.store.getpointers();
+        const pointers = this.store.pointers();
         const slice = data.slice(0, this.store.count());
 
         if (type instanceof Invert) {

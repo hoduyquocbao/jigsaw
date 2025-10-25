@@ -1,4 +1,3 @@
-
 import { Kind } from '../schema/kind';
 import { Record } from '../schema/composite';
 import { Integer, Scalar } from '../schema/primitive';
@@ -32,7 +31,7 @@ function gettype(kind: Kind) {
  */
 export class Store {
     private kind: Kind;
-    private pointers: Pointer[] = [];
+    private _pointers: Pointer[] = [];
     public columns: { [key: string]: any } = {};
     private _count: number = 0;
     private capacity: number = 0;
@@ -43,7 +42,7 @@ export class Store {
 
     constructor(kind: Kind, capacity: number = 1024) {
         if (!(kind instanceof Record)) {
-            throw new Error("Store must be initialized with a Record kind.");
+            throw new Error("Store phải được khởi tạo với một Record kind.");
         }
         this.kind = kind;
         this.capacity = capacity;
@@ -66,8 +65,8 @@ export class Store {
      * @description Lấy bộ con trỏ gốc của store.
      * @returns {Pointer[]} Mảng các con trỏ đến mỗi hàng.
      */
-    getpointers(): Pointer[] {
-        return this.pointers;
+    pointers(): Pointer[] {
+        return this._pointers;
     }
 
 
@@ -77,7 +76,7 @@ export class Store {
      */
     add(data: any[]): void {
         if (this._count + data.length > this.capacity) {
-            console.warn("Store capacity exceeded. Ignoring new data.");
+            console.warn("Vượt quá dung lượng Store. Dữ liệu mới sẽ bị bỏ qua.");
             return;
         }
 
@@ -97,7 +96,7 @@ export class Store {
                 
                 this.columns[fieldname][index] = value;
             });
-            this.pointers.push(new Pointer(index));
+            this._pointers.push(new Pointer(index));
             this._count++;
         }
     }
@@ -105,28 +104,28 @@ export class Store {
      /**
      * @description Thực thi một truy vấn trên dữ liệu, có đo lường hiệu suất chi tiết.
      * @param {any} query Đối tượng mô tả truy vấn.
-     * @param {boolean} useplanner Cờ để bật/tắt planner cho mục đích demo.
+     * @param {boolean} planner Bật/tắt planner cho mục đích demo.
      * @returns {any} Kết quả của truy vấn, bao gồm các chỉ số hiệu suất.
      */
-    query(query: any, useplanner: boolean = true): any {
+    query(query: any, planner: boolean = true): any {
         let plan;
         
-        const planningstart = performance.now();
-        if (useplanner) {
+        const startplan = performance.now();
+        if (planner) {
             plan = this.planner.plan(query, this.indexer);
         } else {
             plan = { strategy: 'fullscan', query, filters: query.filter };
         }
-        const planningtime = performance.now() - planningstart;
+        const timeplan = performance.now() - startplan;
         
-        const executionstart = performance.now();
+        const startexec = performance.now();
         const result = this.engine.execute(plan, this);
-        const executiontime = performance.now() - executionstart;
+        const timeexec = performance.now() - startexec;
 
         return {
             ...result,
-            planning: planningtime,
-            execution: executiontime,
+            planning: timeplan,
+            execution: timeexec,
         };
     }
 }

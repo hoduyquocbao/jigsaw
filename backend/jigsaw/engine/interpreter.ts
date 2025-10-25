@@ -1,4 +1,3 @@
-
 /**
  * @description  Một bộ thực thi truy vấn dựa trên việc duyệt cây (tree-walking).
  * @purpose      Cung cấp một kết quả ngay lập tức cho một truy vấn mà không cần chờ biên dịch.
@@ -15,32 +14,39 @@ export class Interpreter {
      * @returns {any} Kết quả truy vấn.
      */
     run(plan: any, store: any): any {
-        const { pointers, filters } = plan; // Includes post-filters now
+        const { pointers, filters } = plan; // Bao gồm các bộ lọc sau (post-filters)
         const { aggregate } = plan.query;
         const columns = store.columns;
         let total = 0;
         let scanned = 0;
+
+        // Nếu không có con trỏ, không có gì để quét.
+        if (!pointers) {
+            return { total, scanned };
+        }
 
         for (const pointer of pointers) {
             scanned++;
             const index = pointer.value();
             let match = true;
 
-            // Apply post-filters
-            for (const f of filters) {
-                const value = columns[f.column][index];
-                switch (f.op) {
-                    case 'eq':
-                        if (value !== f.value) { match = false; }
-                        break;
-                    case 'gte':
-                        if (value < f.value) { match = false; }
-                        break;
-                    case 'lte':
-                        if (value > f.value) { match = false; }
-                        break;
+            // Áp dụng các bộ lọc sau (post-filters)
+            if (filters) {
+                for (const f of filters) {
+                    const value = columns[f.column][index];
+                    switch (f.op) {
+                        case 'eq':
+                            if (value !== f.value) { match = false; }
+                            break;
+                        case 'gte':
+                            if (value < f.value) { match = false; }
+                            break;
+                        case 'lte':
+                            if (value > f.value) { match = false; }
+                            break;
+                    }
+                    if (!match) break;
                 }
-                if (!match) break;
             }
 
             if (match) {

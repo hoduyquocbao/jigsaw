@@ -1,4 +1,3 @@
-
 import { Interpreter } from './interpreter';
 import { Executable } from './executable';
 
@@ -8,7 +7,7 @@ import { Executable } from './executable';
  * @solves       Vấn đề "khởi động lạnh" (cold start) và các rủi ro bảo mật từ JIT động.
  * @model        Thực thi Phân tầng (Tiered Execution).
  * @algorithm    Sử dụng cache để lưu trữ các hàm đã được biên dịch.
- * @complexity   - Lần chạy đầu (Interpreter): O(N).
+ * @complexity   - Lần chạy đầu (Interpreter): O(K) với K là số con trỏ.
  *               - Các lần sau (Compiled): O(N) nhưng nhanh hơn đáng kể do tối ưu hóa.
  * @rationale    Mô hình này cung cấp thời gian phản hồi tức thì bằng Interpreter cho các truy vấn đã được chỉ mục lọc. Đối với quét toàn bộ, nó "biên dịch" một hàm chuyên biệt cao một cách an toàn, tránh `new Function()` và các lỗi `unsafe-eval`, đạt được sự cân bằng tốt nhất giữa an ninh, độ trễ và thông lượng.
  */
@@ -29,10 +28,11 @@ export class Engine {
      */
     execute(plan: any, store: any): any {
         const key = JSON.stringify(plan, (key, value) => {
+            // BigInt không thể được JSON.stringify, cần chuyển đổi
             return typeof value === 'bigint' ? value.toString() : value;
         });
-        let executable = this.cache.get(key);
 
+        let executable = this.cache.get(key);
         let result;
 
         if (executable) {
@@ -42,7 +42,7 @@ export class Engine {
             this.cache.set(key, executable);
             result = executable();
         } else { // 'index' strategy
-            // Interpreter handles index-based plans which might have post-filters
+            // Interpreter xử lý các kế hoạch dựa trên chỉ mục, có thể có các bộ lọc sau
             result = this.interpreter.run(plan, store);
         }
         
@@ -56,7 +56,8 @@ export class Engine {
      * @returns {Executable} Một hàm đã được "biên dịch".
      */
     private compile(plan: any, store: any): Executable {
-        const { filter, aggregate } = plan.query;
+        const { filters } = plan; // Sử dụng filters từ plan
+        const { aggregate } = plan.query;
         const columns = store.columns;
         const count = store.count();
 
@@ -68,7 +69,7 @@ export class Engine {
                 scanned++;
                 let match = true;
                 
-                for (const f of filter) {
+                for (const f of filters) {
                     const value = columns[f.column][i];
                     switch (f.op) {
                         case 'eq':
