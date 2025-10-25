@@ -1,3 +1,4 @@
+
 import { Pointer } from './pointer';
 import { Invert } from '../index/invert';
 import { Tree } from '../index/tree';
@@ -24,20 +25,18 @@ export class Indexer {
      * @param {Invert | Tree} type Loại chỉ mục cần xây dựng.
      */
     build(column: string, type: Invert | Tree): void {
-        const columnData = this.store.columns[column];
-        if (!columnData) {
+        const data = this.store.columns[column];
+        if (!data) {
             throw new Error(`Column '${column}' does not exist.`);
         }
         
-        // FIX: Sử dụng bộ con trỏ gốc từ store để đảm bảo tính nhất quán tham chiếu.
-        const pointers = this.store.getPointers();
-        // Chỉ lập chỉ mục trên dữ liệu đã thực sự được thêm vào.
-        const slicedData = columnData.slice(0, this.store.count());
+        const pointers = this.store.getpointers();
+        const slice = data.slice(0, this.store.count());
 
         if (type instanceof Invert) {
-            this.indexes.set(column, new Invert(slicedData, pointers));
+            this.indexes.set(column, new Invert(slice, pointers));
         } else if (type instanceof Tree) {
-             this.indexes.set(column, new Tree(slicedData, pointers));
+             this.indexes.set(column, new Tree(slice, pointers));
         }
     }
 

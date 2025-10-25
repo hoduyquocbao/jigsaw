@@ -9,41 +9,44 @@ import type { Report, Result } from '../test';
  * @rationale    Một giao diện đồ họa cho phép phân loại, tô màu và định dạng kết quả, giúp việc xác định các bài test thất bại và gỡ lỗi trở nên nhanh chóng và hiệu quả hơn nhiều so với việc đọc văn bản thuần túy.
  */
 export function Report({ report }: { report: Report }) {
-    const [copyStatus, setCopyStatus] = useState('Chép Báo cáo');
+    const [status, setStatus] = useState('Chép');
 
     if (!report) return null;
 
     const summary = `Hoàn thành sau ${report.duration.toFixed(2)}ms. Tổng: ${report.total}, Thành công: ${report.passed}, Thất bại: ${report.failed}.`;
 
-    const copyReport = () => {
-        const reportText = JSON.stringify(report, null, 2);
-        navigator.clipboard.writeText(reportText).then(() => {
-            setCopyStatus('Đã chép!');
-            setTimeout(() => setCopyStatus('Chép Báo cáo'), 2000);
+    const copy = () => {
+        const text = JSON.stringify(report, null, 2);
+        navigator.clipboard.writeText(text).then(() => {
+            setStatus('Đã chép!');
+            setTimeout(() => setStatus('Chép'), 2000);
         }).catch(err => {
             console.error('Lỗi khi sao chép báo cáo kiểm thử: ', err);
         });
     };
 
     return (
-        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/80 p-5 rounded-xl shadow-lg font-mono text-sm">
+        <div className="bg-gray-900/50 backdrop-blur-sm p-5 rounded-lg">
             <div className="mb-4 flex justify-between items-start">
                 <div>
-                    <h3 className="text-lg font-bold text-white mb-2">Kết quả Kiểm thử Backend</h3>
+                     <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Kết quả Kiểm thử Backend
+                    </h3>
                     <p className={`text-base ${report.failed > 0 ? 'text-red-400' : 'text-green-400'}`}>
                         {summary}
                     </p>
                 </div>
                 <button 
-                    onClick={copyReport} 
+                    onClick={copy} 
                     className="bg-gray-700/80 hover:bg-gray-600/80 text-xs text-gray-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105 flex-shrink-0 ml-4"
                 >
-                    {copyStatus}
+                    {status}
                 </button>
             </div>
             <div className="space-y-3">
                 {report.results.map((result, index) => (
-                    <div key={index} className="border-t border-gray-700/80 pt-3">
+                    <div key={index} className="border-t border-gray-700/60 pt-3">
                         <div className="flex items-center">
                             {result.status === 'passed' ? (
                                 <span className="text-green-400 mr-3 font-bold text-lg">✓</span>

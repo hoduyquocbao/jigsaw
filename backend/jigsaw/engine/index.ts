@@ -1,3 +1,4 @@
+
 import { Interpreter } from './interpreter';
 import { Executable } from './executable';
 
@@ -40,7 +41,8 @@ export class Engine {
             executable = this.compile(plan, store);
             this.cache.set(key, executable);
             result = executable();
-        } else {
+        } else { // 'index' strategy
+            // Interpreter handles index-based plans which might have post-filters
             result = this.interpreter.run(plan, store);
         }
         

@@ -1,3 +1,4 @@
+
 import { Pointer } from '../store/pointer';
 import { Invert } from '../index/invert';
 import { Tree } from '../index/tree';
@@ -8,7 +9,7 @@ import { Tree } from '../index/tree';
  * @solves       Vấn đề thực thi truy vấn một cách "ngây thơ" bằng cách luôn quét toàn bộ dữ liệu.
  * @model        Bộ tối ưu hóa Truy vấn dựa trên Quy tắc (Rule-Based Query Optimizer).
  * @complexity   O(F * I) với F là số bộ lọc, I là số chỉ mục.
- * @rationale    Sự tồn tại của Planner tách biệt hoàn toàn logic "người dùng muốn gì" (truy vấn) khỏi "hệ thống nên làm như thế nào" (kế hoạch). Đây là dấu hiệu của một hệ thống cơ sở dữ liệu trưởng thành. Phiên bản này sử dụng các quy tắc đơn giản (ví dụ: "nếu có chỉ mục, hãy dùng nó") để chọn kế hoạch tốt nhất.
+ * @rationale    Sự tồn tại của Planner tách biệt hoàn toàn logic "người dùng muốn gì" (truy vấn) khỏi "hệ thống nên làm như thế nào" (kế hoạch). Phiên bản này sử dụng quy tắc "chỉ mục chọn lọc nhất" để giảm nhanh tập dữ liệu cần quét, một heuristic hiệu quả để tăng tốc độ truy vấn mà không cần thống kê phức tạp.
  */
 export class Planner {
      /**
@@ -19,60 +20,63 @@ export class Planner {
      */
     plan(query: any, indexer: any): any {
         const { filter } = query;
-        let candidates = [];
+        const candidates = [];
+        const filtersByColumn: { [key: string]: any[] } = {};
 
-        // Tìm các chỉ mục phù hợp cho từng bộ lọc
         for (const f of filter) {
-            const index = indexer.get(f.column);
+            if (!filtersByColumn[f.column]) {
+                filtersByColumn[f.column] = [];
+            }
+            filtersByColumn[f.column].push(f);
+        }
+
+        for (const column in filtersByColumn) {
+            const index = indexer.get(column);
             if (!index) continue;
 
-            if (f.op === 'eq' && index instanceof Invert) {
-                candidates.push({ ...f, cost: 1, type: 'invert' }); // Chi phí rất thấp
-            }
-            if ((f.op === 'gte' || f.op === 'lte') && index instanceof Tree) {
-                // Ước tính chi phí dựa trên phạm vi (cần thống kê, ở đây giả định)
-                candidates.push({ ...f, cost: 10, type: 'tree' });
+            const columnFilters = filtersByColumn[column];
+            
+            if (index instanceof Invert && columnFilters.some(f => f.op === 'eq')) {
+                // Ưu tiên cao nhất cho tìm kiếm bằng nhau trên Invert
+                candidates.push({ column, cost: 1, type: 'invert' });
+            } else if (index instanceof Tree) {
+                // Ưu tiên thấp hơn cho quét phạm vi trên Tree
+                candidates.push({ column, cost: 10, type: 'tree' });
             }
         }
         
-        // Nếu không có chỉ mục nào phù hợp
         if (candidates.length === 0) {
             return { strategy: 'fullscan', query };
         }
         
-        // Chọn các chỉ mục tốt nhất để sử dụng (ở đây là logic đơn giản)
-        // Một planner thực sự sẽ có logic phức tạp hơn để kết hợp các chỉ mục
-        let pointers: Set<Pointer> | null = null;
-
-        const processedColumns = new Set<string>();
-
-        for (const c of candidates) {
-            if (processedColumns.has(c.column)) continue;
-
-            let result: Set<Pointer> | undefined;
-            const index = indexer.get(c.column);
-
-            if (c.type === 'invert' && index instanceof Invert) {
-                result = index.find(c.value);
-                processedColumns.add(c.column);
-            } else if (c.type === 'tree' && index instanceof Tree) {
-                const range = filter.filter(f => f.column === c.column);
-                const gte = range.find(f => f.op === 'gte');
-                const lte = range.find(f => f.op === 'lte');
-                result = index.find(gte?.value, lte?.value);
-                processedColumns.add(c.column);
-            }
-
-            if (result) {
-                if (!pointers) {
-                    pointers = result;
-                } else {
-                    // Giao của hai tập hợp con trỏ
-                    pointers = new Set([...pointers].filter(p => result!.has(p)));
-                }
-            }
-        }
+        // Sắp xếp các ứng viên, chọn cái có chi phí thấp nhất
+        candidates.sort((a, b) => a.cost - b.cost);
+        const best = candidates[0];
         
-        return { strategy: 'index', pointers, query };
+        let pointers: Set<Pointer>;
+        const index = indexer.get(best.column);
+
+        if (best.type === 'invert' && index instanceof Invert) {
+            const eqFilter = filtersByColumn[best.column].find(f => f.op === 'eq');
+            pointers = index.find(eqFilter.value);
+        } else if (best.type === 'tree' && index instanceof Tree) {
+            const range = filtersByColumn[best.column];
+            const gte = range.find(f => f.op === 'gte');
+            const lte = range.find(f => f.op === 'lte');
+            pointers = index.find(gte?.value, lte?.value);
+        } else {
+             // Fallback
+            return { strategy: 'fullscan', query };
+        }
+
+        // Các bộ lọc còn lại sẽ được áp dụng sau
+        const postFilters = filter.filter(f => f.column !== best.column);
+
+        return { 
+            strategy: 'index', 
+            pointers, 
+            filters: postFilters, // Post-filters
+            query 
+        };
     }
 }

@@ -1,3 +1,4 @@
+
 import { Kind } from '../schema/kind';
 import { Record } from '../schema/composite';
 import { Integer, Scalar } from '../schema/primitive';
@@ -6,7 +7,7 @@ import { Indexer } from './indexer';
 import { Planner } from '../query/planner';
 import { Engine } from '../engine';
 
-function getTypedArray(kind: Kind) {
+function gettype(kind: Kind) {
     if (kind instanceof Integer) {
         switch (kind.bits) {
             case 8: return kind.signed ? Int8Array : Uint8Array;
@@ -18,7 +19,6 @@ function getTypedArray(kind: Kind) {
     if (kind instanceof Scalar) {
         return kind.precision === 32 ? Float32Array : Float64Array;
     }
-    // For text, list, etc., we would store offsets or use different strategies
     return Array;
 }
 
@@ -48,9 +48,9 @@ export class Store {
         this.kind = kind;
         this.capacity = capacity;
         
-        kind.fields.forEach((fieldKind, fieldName) => {
-            const ArrayType = getTypedArray(fieldKind);
-            this.columns[fieldName] = new ArrayType(capacity);
+        kind.fields.forEach((fieldkind, fieldname) => {
+            const type = gettype(fieldkind);
+            this.columns[fieldname] = new type(capacity);
         });
 
         this.indexer = new Indexer(this);
@@ -66,7 +66,7 @@ export class Store {
      * @description Lấy bộ con trỏ gốc của store.
      * @returns {Pointer[]} Mảng các con trỏ đến mỗi hàng.
      */
-    public getPointers(): Pointer[] {
+    getpointers(): Pointer[] {
         return this.pointers;
     }
 
@@ -81,21 +81,21 @@ export class Store {
             return;
         }
 
-        const recordKind = this.kind as Record;
+        const record = this.kind as Record;
 
-        for (const record of data) {
+        for (const item of data) {
             const index = this._count;
-            recordKind.fields.forEach((fieldKind, fieldName) => {
-                let value = record[fieldName];
+            record.fields.forEach((fieldkind, fieldname) => {
+                let value = item[fieldname];
                 
-                if (fieldKind instanceof Integer && fieldKind.bits === 64) {
+                if (fieldkind instanceof Integer && fieldkind.bits === 64) {
                     if (typeof value !== 'bigint') {
                         const num = Number(value);
                         value = BigInt(isNaN(num) ? 0 : Math.round(num));
                     }
                 }
                 
-                this.columns[fieldName][index] = value;
+                this.columns[fieldname][index] = value;
             });
             this.pointers.push(new Pointer(index));
             this._count++;
@@ -111,22 +111,22 @@ export class Store {
     query(query: any, useplanner: boolean = true): any {
         let plan;
         
-        const planningStart = performance.now();
+        const planningstart = performance.now();
         if (useplanner) {
             plan = this.planner.plan(query, this.indexer);
         } else {
-            plan = { strategy: 'fullscan', query };
+            plan = { strategy: 'fullscan', query, filters: query.filter };
         }
-        const planningTime = performance.now() - planningStart;
+        const planningtime = performance.now() - planningstart;
         
-        const executionStart = performance.now();
+        const executionstart = performance.now();
         const result = this.engine.execute(plan, this);
-        const executionTime = performance.now() - executionStart;
+        const executiontime = performance.now() - executionstart;
 
         return {
             ...result,
-            planning: planningTime,
-            execution: executionTime,
+            planning: planningtime,
+            execution: executiontime,
         };
     }
 }

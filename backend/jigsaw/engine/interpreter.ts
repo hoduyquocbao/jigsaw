@@ -1,3 +1,4 @@
+
 /**
  * @description  Một bộ thực thi truy vấn dựa trên việc duyệt cây (tree-walking).
  * @purpose      Cung cấp một kết quả ngay lập tức cho một truy vấn mà không cần chờ biên dịch.
@@ -14,18 +15,41 @@ export class Interpreter {
      * @returns {any} Kết quả truy vấn.
      */
     run(plan: any, store: any): any {
-        const { pointers } = plan;
+        const { pointers, filters } = plan; // Includes post-filters now
         const { aggregate } = plan.query;
         const columns = store.columns;
         let total = 0;
+        let scanned = 0;
 
         for (const pointer of pointers) {
+            scanned++;
             const index = pointer.value();
-            if (aggregate.type === 'sum') {
-                total += columns[aggregate.column][index];
+            let match = true;
+
+            // Apply post-filters
+            for (const f of filters) {
+                const value = columns[f.column][index];
+                switch (f.op) {
+                    case 'eq':
+                        if (value !== f.value) { match = false; }
+                        break;
+                    case 'gte':
+                        if (value < f.value) { match = false; }
+                        break;
+                    case 'lte':
+                        if (value > f.value) { match = false; }
+                        break;
+                }
+                if (!match) break;
+            }
+
+            if (match) {
+                if (aggregate.type === 'sum') {
+                    total += columns[aggregate.column][index];
+                }
             }
         }
 
-        return { total, scanned: pointers.size };
+        return { total, scanned };
     }
 }
