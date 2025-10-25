@@ -1,5 +1,3 @@
-
-
 /**
  * @description  Thực thi các tác vụ được đăng ký, được gửi từ luồng chính.
  * @purpose      Là đơn vị thực thi độc lập, an toàn, chạy trong một luồng riêng biệt.
@@ -19,13 +17,13 @@
  */
 
 // Tác vụ nặng để trình diễn xử lý song song
-function heavy(chunk) {
+function heavy(chunk: number[]) {
     // Một phép tính vô nghĩa nhưng tốn thời gian
     return chunk.reduce((s, v) => s + Math.sqrt(v), 0);
 }
 
 // Tác vụ tạo dữ liệu mẫu
-function generate(count) {
+function generate(count: number) {
     const data = [];
     const startDate = new Date(2020, 0, 1).getTime();
     const endDate = new Date(2024, 11, 31).getTime();
@@ -42,9 +40,10 @@ function generate(count) {
 }
 
 // Tác vụ xây dựng chỉ mục Tree
-function buildTree(column) {
-    // FIX: Explicitly type `v` as `any` to resolve the error "Argument of type 'unknown' is not assignable to parameter of type 'string | number | bigint | boolean'".
-    // This ensures compatibility with the BigInt constructor.
+function buildTree(column: any[]) {
+    // Chuyển đổi sang BigInt để sắp xếp chính xác.
+    // FIX: Explicitly type 'v' as 'any' to resolve the 'unknown' type error when calling BigInt.
+    // This acknowledges that data passed to workers is loosely typed, while ensuring compatibility with the BigInt constructor.
     const values = Array.from(column, (v: any) => BigInt(v));
     const indices = Array.from({ length: values.length }, (_, i) => i);
     
@@ -63,7 +62,7 @@ function buildTree(column) {
 }
 
 
-const registry = {
+const registry: { [key: string]: (...args: any[]) => any } = {
     heavy,
     generate,
     buildTree,
@@ -88,7 +87,7 @@ self.onmessage = async (event) => {
         // Phản hồi có thể chứa Transferable Objects, nhưng ở đây chúng ta chỉ trả về kết quả
         self.postMessage({ id, result });
 
-    } catch (e) {
+    } catch (e: any) {
         self.postMessage({ id, error: e.message });
     }
 };
