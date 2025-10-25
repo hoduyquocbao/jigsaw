@@ -42,12 +42,8 @@ function generate(count) {
 // Tác vụ xây dựng chỉ mục Tree
 function buildTree(column) {
     // Chuyển đổi sang BigInt để sắp xếp chính xác.
-    // FIX: Loại bỏ chú thích kiểu `: any` để đảm bảo mã là JavaScript thuần túy.
-    // FIX: Coerce 'v' to a string before passing to BigInt. This satisfies the TypeScript
-    // type checker which sees 'v' as 'unknown' due to the untyped 'column' parameter.
-    // This runtime coercion avoids TypeScript-specific syntax like type annotations.
     const values = Array.from(column, (v) => BigInt(String(v)));
-    const indices = Array.from({ length: values.length }, (_, i) => i);
+    const indices = Array.from({ length: column.length }, (_, i) => i);
     
     indices.sort((a, b) => {
         const valA = values[a];
@@ -73,7 +69,7 @@ const registry = {
 // --- Kết thúc registry được nhúng ---
 
 
-self.onmessage = async (event) => {
+self.onmessage = async function(event) {
     const { name, args, id } = event.data;
 
     const task = registry[name];
