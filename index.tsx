@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Conductor } from './backend/conductor';
@@ -220,11 +219,14 @@ function App() {
                     )}
                 </section>
                 
-                <section className="md:col-span-2 space-y-6">
-                    {testReport && (
-                        <ReportUI report={testReport} />
-                    )}
+                <section className="md:col-span-2">
                     <Card className="p-5 h-full flex flex-col">
+                        {testReport && (
+                            <>
+                                <ReportUI report={testReport} />
+                                <div className="my-4 border-t border-gray-700/60" />
+                            </>
+                        )}
                         <div className="flex justify-between items-center mb-3">
                             <h2 className="text-xl font-semibold text-white">Nhật ký Hoạt động</h2>
                             <button onClick={copyLog} className="bg-gray-700/80 hover:bg-gray-600/80 text-xs text-gray-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105">
