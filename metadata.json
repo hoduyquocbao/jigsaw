@@ -1,0 +1,5 @@
+{
+  "name": "Jigsaw",
+  "description": "Một ứng dụng web tương tác để trình diễn sức mạnh của Jigsaw - một động cơ cơ sở dữ liệu trong bộ nhớ (in-memory) dạng cột, được tối ưu hóa bằng biên dịch JIT và hệ thống chỉ mục thông minh.",
+  "requestFramePermissions": []
+}
