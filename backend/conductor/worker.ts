@@ -43,8 +43,10 @@ function generate(count) {
 function buildTree(column) {
     // Chuyển đổi sang BigInt để sắp xếp chính xác.
     // FIX: Loại bỏ chú thích kiểu `: any` để đảm bảo mã là JavaScript thuần túy.
-    // FIX: Added an explicit `any` type to `v` to resolve a TypeScript error where its type was inferred as `unknown`, which is incompatible with the `BigInt` constructor.
-    const values = Array.from(column, (v: any) => BigInt(v));
+    // FIX: Coerce 'v' to a string before passing to BigInt. This satisfies the TypeScript
+    // type checker which sees 'v' as 'unknown' due to the untyped 'column' parameter.
+    // This runtime coercion avoids TypeScript-specific syntax like type annotations.
+    const values = Array.from(column, (v) => BigInt(String(v)));
     const indices = Array.from({ length: values.length }, (_, i) => i);
     
     indices.sort((a, b) => {
