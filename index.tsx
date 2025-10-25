@@ -73,6 +73,7 @@ function App() {
     };
 
     const setup = async () => {
+        let conductor: Conductor | null = null;
         try {
             telemetry.reset();
             write("Bắt đầu khởi tạo...");
@@ -85,7 +86,7 @@ function App() {
             setStatus('Khởi tạo Conductor...');
             telemetry.start('conductor');
             
-            const conductor = await Conductor.create(`${WORKER_URL}?v=${now}`, navigator.hardwareConcurrency);
+            conductor = await Conductor.create(`${WORKER_URL}?v=${now}`, navigator.hardwareConcurrency);
             telemetry.end('conductor');
             write("Conductor đã sẵn sàng.");
             
@@ -93,13 +94,11 @@ function App() {
             telemetry.start('generation');
             const chunks = Array(navigator.hardwareConcurrency).fill(Math.ceil(1_000_000 / navigator.hardwareConcurrency));
             
-            const promises = chunks.map(count => conductor.submit('generate', count));
+            const promises = chunks.map(count => conductor!.submit('generate', count));
             const results = await Promise.all(promises);
             const data = ([] as any[]).concat(...results);
 
             telemetry.end('generation');
-            conductor.terminate();
-            
             write(`Đã tạo ${data.length.toLocaleString()} bản ghi giao dịch.`);
             setStatus('Đang nạp dữ liệu vào Store...');
             telemetry.start('loading');
@@ -117,14 +116,16 @@ function App() {
             telemetry.end('loading');
             write('Nạp dữ liệu vào Store thành công.');
             
-            setStatus('Đang xây dựng chỉ mục...');
+            setStatus('Đang xây dựng chỉ mục (nền)...');
             telemetry.start('indexing');
     
+            // Invert index xây dựng nhanh, có thể làm trên luồng chính
             newstore.indexer.build('user', new Invert());
             write("Đã xây dựng chỉ mục Invert trên cột 'user'.");
             
-            newstore.indexer.build('timestamp', new Tree());
-            write("Đã xây dựng chỉ mục Tree trên cột 'timestamp'.");
+            // Tree index xây dựng chậm, chuyển sang worker để tránh đóng băng UI
+            await newstore.indexer.build('timestamp', new Tree(), conductor);
+            write("Đã xây dựng chỉ mục Tree trên cột 'timestamp' (chạy nền).");
             
             telemetry.end('indexing');
             telemetry.end('total');
@@ -137,6 +138,11 @@ function App() {
             write(message);
             setStatus('Lỗi khởi tạo');
             console.error(e);
+        } finally {
+            if (conductor) {
+                conductor.terminate();
+                write("Conductor đã dừng để giải phóng tài nguyên.");
+            }
         }
     };
 
@@ -161,12 +167,10 @@ function App() {
             };
     
             write(`Đang chạy truy vấn cho user ${user} với planner=${planner}...`);
-            const starttime = performance.now();
             const response = store.query(request, planner);
-            const duration = performance.now() - starttime;
             
             setResult(response);
-            write(`Truy vấn hoàn tất sau ${(response.planning + response.execution).toFixed(2)}ms.`);
+            write(`Truy vấn hoàn tất sau ${(response.planning + response.execution).toFixed(2)}ms. (Lập kế hoạch: ${response.planning.toFixed(2)}ms, Thực thi: ${response.execution.toFixed(2)}ms)`);
             setBusy(false);
         }, 50);
     };
@@ -215,8 +219,8 @@ function App() {
             onClick={action} 
             disabled={disabled} 
             className={`font-semibold py-2.5 px-4 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-xl shadow-md disabled:opacity-50 disabled:transform-none disabled:shadow-md disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base ${className}`}>
-            {disabled && busy && (
-                 <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            {disabled && (status.startsWith('Đang') || testing === 'running' || busy) && (
+                 <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -297,8 +301,8 @@ function App() {
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                           Bảng điều khiển
                         </h2>
-                        <Button action={setup} disabled={status !== 'Chưa khởi tạo'} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">
-                            1. Khởi tạo & Nạp 1M bản ghi
+                        <Button action={setup} disabled={status !== 'Chưa khởi tạo' && status !== 'Sẵn sàng' && status !== 'Lỗi khởi tạo'} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white">
+                            {status === 'Chưa khởi tạo' || status === 'Lỗi khởi tạo' ? '1. Khởi tạo & Nạp 1M bản ghi' : 'Khởi tạo lại'}
                         </Button>
                         <div className="grid grid-cols-2 gap-3 mt-3">
                              <Button action={() => query(false)} disabled={!store || busy} className="bg-orange-600 hover:bg-orange-500 text-white">

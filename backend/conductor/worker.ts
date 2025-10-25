@@ -33,17 +33,39 @@ function generate(count) {
             user: Math.floor(Math.random() * 100),
             product: Math.floor(Math.random() * 1000),
             amount: Math.random() * 200,
-            // FIX: Trả về timestamp dưới dạng Number thay vì string để đảm bảo
-            // việc truyền dữ liệu giữa các luồng an toàn và nhất quán.
             timestamp: startDate + Math.random() * (endDate - startDate),
         });
     }
     return data;
 }
 
+// Tác vụ xây dựng chỉ mục Tree
+function buildTree(column) {
+    // FIX: Corrected comment to accurately describe the logic. Values are converted TO BigInt.
+    // Chuyển đổi các giá trị đầu vào thành BigInt để đảm bảo việc sắp xếp là chính xác.
+    // FIX: Explicitly type `v` as `any` to resolve TypeScript error where `v` is inferred as `unknown`.
+    const values = Array.from(column, (v: any) => BigInt(v));
+    const indices = Array.from({ length: values.length }, (_, i) => i);
+    
+    indices.sort((a, b) => {
+        const valA = values[a];
+        const valB = values[b];
+        if (valA < valB) return -1;
+        if (valA > valB) return 1;
+        return 0;
+    });
+
+    // Trả về một cấu trúc chứa cả giá trị và chỉ số đã được sắp xếp
+    // để luồng chính có thể tái tạo lại chỉ mục.
+    const sortedValues = indices.map(i => values[i]);
+    return { sortedValues, sortedIndices: indices };
+}
+
+
 const registry = {
     heavy,
     generate,
+    buildTree,
 };
 
 // --- Kết thúc registry được nhúng ---

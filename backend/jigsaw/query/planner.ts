@@ -52,20 +52,23 @@ export class Planner {
         candidates.sort((a, b) => a.cost - b.cost);
         const best = candidates[0];
         
-        let pointers: Set<Pointer>;
-        const index = indexer.get(best.column);
+        const index_plan = {
+            type: best.type,
+            column: best.column,
+            value: undefined,
+            min: undefined,
+            max: undefined,
+        };
 
-        if (best.type === 'invert' && index instanceof Invert) {
+        if (best.type === 'invert') {
             const filter = groups[best.column].find(f => f.op === 'eq');
-            pointers = index.find(filter.value);
-        } else if (best.type === 'tree' && index instanceof Tree) {
+            index_plan.value = filter.value;
+        } else if (best.type === 'tree') {
             const range = groups[best.column];
             const gte = range.find(f => f.op === 'gte');
             const lte = range.find(f => f.op === 'lte');
-            pointers = index.find(gte?.value, lte?.value);
-        } else {
-             // Dự phòng nếu có lỗi logic
-            return { strategy: 'fullscan', query, filters: filter };
+            index_plan.min = gte?.value;
+            index_plan.max = lte?.value;
         }
 
         // Các bộ lọc chưa được sử dụng bởi chỉ mục sẽ được áp dụng sau
@@ -73,8 +76,8 @@ export class Planner {
 
         return { 
             strategy: 'index', 
-            pointers, 
-            filters: remainder, // Chuyển các bộ lọc còn lại cho giai đoạn thực thi
+            index: index_plan,
+            filters: remainder, 
             query 
         };
     }

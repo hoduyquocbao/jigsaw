@@ -5,30 +5,29 @@ import { Pointer } from '../store/pointer';
  * @purpose      Tăng tốc các truy vấn phạm vi (range queries), ví dụ: "WHERE timestamp BETWEEN X AND Y".
  * @model        Cây B+ (B+ Tree) - Mô phỏng bằng mảng đã sắp xếp.
  * @algorithm    Tìm kiếm nhị phân (Binary Search).
- * @complexity   - Xây dựng: O(N log N) do sắp xếp.
+ * @complexity   - Xây dựng (Worker): O(N log N).
  *               - Tìm kiếm phạm vi: O(log N + K) với K là số kết quả.
- * @rationale    Một Cây B+ thực sự rất phức tạp. Sử dụng một mảng đã sắp xếp kết hợp với tìm kiếm nhị phân cung cấp một sự mô phỏng đủ tốt về mặt độ phức tạp tính toán cho mục đích trình diễn, thể hiện lợi ích của cấu trúc dữ liệu được sắp xếp cho các truy vấn phạm vi.
+ * @rationale    Một Cây B+ thực sự rất phức tạp. Sử dụng một mảng đã sắp xếp kết hợp với tìm kiếm nhị phân cung cấp một sự mô phỏng đủ tốt về mặt độ phức tạp tính toán cho mục đích trình diễn. Việc chuyển logic sắp xếp sang Worker là tối quan trọng để không làm đóng băng UI.
  */
 export class Tree {
-    // [value, pointer]
-    private sorted: [any, Pointer][];
+    private values: any[] = [];
+    private pointers: Pointer[] = [];
 
-    constructor(column?: any[], pointers?: Pointer[]) {
-        this.sorted = [];
-        if (column && pointers) {
-            this.build(column, pointers);
-        }
+    constructor() {
+        // Constructor giờ đây trống, việc build sẽ được thực hiện riêng.
+    }
+    
+    /**
+     * @description Nạp dữ liệu đã được sắp xếp trước từ worker.
+     * @param {any[]} sortedValues Mảng các giá trị đã sắp xếp.
+     * @param {number[]} sortedIndices Mảng các chỉ số gốc tương ứng.
+     * @param {Pointer[]} originalPointers Mảng con trỏ gốc.
+     */
+    load(sortedValues: any[], sortedIndices: number[], originalPointers: Pointer[]): void {
+        this.values = sortedValues.map(v => BigInt(v));
+        this.pointers = sortedIndices.map(i => originalPointers[i]);
     }
 
-    private build(column: any[], pointers: Pointer[]): void {
-        this.sorted = Array.from(column).map((value, i) => [value, pointers[i]]);
-        
-        this.sorted.sort((a, b) => {
-            if (a[0] < b[0]) return -1;
-            if (a[0] > b[0]) return 1;
-            return 0;
-        });
-    }
 
     /**
      * @description Tìm kiếm nhị phân để tìm chỉ số của phần tử đầu tiên >= giá trị cho trước.
@@ -37,10 +36,10 @@ export class Tree {
      */
     private findStart(value: any): number {
         let low = 0;
-        let high = this.sorted.length;
+        let high = this.values.length;
         while (low < high) {
             const mid = Math.floor(low + (high - low) / 2);
-            if (this.sorted[mid][0] < value) {
+            if (this.values[mid] < value) {
                 low = mid + 1;
             } else {
                 high = mid;
@@ -64,14 +63,14 @@ export class Tree {
 
         const start = minVal !== null ? this.findStart(minVal) : 0;
 
-        for (let i = start; i < this.sorted.length; i++) {
-            const [value, pointer] = this.sorted[i];
+        for (let i = start; i < this.values.length; i++) {
+            const value = this.values[i];
             
             if (maxVal !== null && value > maxVal) {
                 break; // Tối ưu hóa: dừng sớm khi đã vượt qua phạm vi
             }
 
-            results.add(pointer);
+            results.add(this.pointers[i]);
         }
         
         return results;

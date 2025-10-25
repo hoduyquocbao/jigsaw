@@ -1,5 +1,7 @@
 import { Interpreter } from './interpreter';
 import { Executable } from './executable';
+import { Invert } from '../index/invert';
+import { Tree } from '../index/tree';
 
 /**
  * @description  Động cơ thực thi truy vấn, điều phối giữa chế độ thông dịch và biên dịch.
@@ -28,13 +30,22 @@ export class Engine {
      */
     execute(plan: any, store: any): any {
         const key = JSON.stringify(plan, (key, value) => {
-            // BigInt không thể được JSON.stringify, cần chuyển đổi
             return typeof value === 'bigint' ? value.toString() : value;
         });
 
         let executable = this.cache.get(key);
         let result;
 
+        // Thực hiện tìm kiếm chỉ mục ở đây, trong giai đoạn thực thi
+        if (plan.strategy === 'index' && plan.index) {
+            const index = store.indexer.get(plan.index.column);
+            if (index instanceof Invert && plan.index.type === 'invert') {
+                plan.pointers = index.find(plan.index.value);
+            } else if (index instanceof Tree && plan.index.type === 'tree') {
+                plan.pointers = index.find(plan.index.min, plan.index.max);
+            }
+        }
+        
         if (executable) {
             result = executable();
         } else if (plan.strategy === 'fullscan') {
@@ -42,7 +53,6 @@ export class Engine {
             this.cache.set(key, executable);
             result = executable();
         } else { // 'index' strategy
-            // Interpreter xử lý các kế hoạch dựa trên chỉ mục, có thể có các bộ lọc sau
             result = this.interpreter.run(plan, store);
         }
         
@@ -56,7 +66,7 @@ export class Engine {
      * @returns {Executable} Một hàm đã được "biên dịch".
      */
     private compile(plan: any, store: any): Executable {
-        const { filters } = plan; // Sử dụng filters từ plan
+        const { filters } = plan; 
         const { aggregate } = plan.query;
         const columns = store.columns;
         const count = store.count();
