@@ -63,7 +63,8 @@ function App() {
     const [isQuerying, setIsQuerying] = useState(false);
 
     const [workerVersion, setWorkerVersion] = useState<number | null>(null);
-    const [copyStatus, setCopyStatus] = useState('Chép');
+    const [logCopyStatus, setLogCopyStatus] = useState('Chép');
+    const [queryCopyStatus, setQueryCopyStatus] = useState('Chép');
 
     const addLog = (message: string) => {
         console.log(message);
@@ -187,8 +188,8 @@ function App() {
         if (log.length === 0) return;
         const logText = [...log].reverse().join('\n');
         navigator.clipboard.writeText(logText).then(() => {
-            setCopyStatus('Đã chép!');
-            setTimeout(() => setCopyStatus('Chép'), 2000);
+            setLogCopyStatus('Đã chép!');
+            setTimeout(() => setLogCopyStatus('Chép'), 2000);
         }).catch(err => {
             console.error('Lỗi khi sao chép nhật ký: ', err);
             addLog('Lỗi: Không thể sao chép nhật ký.');
@@ -218,10 +219,31 @@ function App() {
 
     const TelemetryDisplay = ({ report }: { report: Record<string, number> | null }) => {
         if (!report) return null;
+        const [copyStatus, setCopyStatus] = useState('Chép');
+
+        const handleCopy = () => {
+            if (!report) return;
+            let text = 'Báo cáo Hiệu suất Khởi tạo\n\n';
+            text += Object.entries(report).map(([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}:\n${value.toLocaleString()} ms`).join('\n\n');
+            
+            navigator.clipboard.writeText(text).then(() => {
+                setCopyStatus('Đã chép!');
+                setTimeout(() => setCopyStatus('Chép'), 2000);
+            }).catch(err => {
+                console.error('Lỗi sao chép Telemetry: ', err);
+                addLog('Lỗi: Không thể sao chép báo cáo hiệu suất.');
+            });
+        };
+
         const entries = Object.entries(report);
         return (
             <Card className="p-5">
-                <h2 className="text-xl font-semibold text-white mb-3">Báo cáo Hiệu suất Khởi tạo</h2>
+                <div className="flex justify-between items-center mb-3">
+                    <h2 className="text-xl font-semibold text-white">Báo cáo Hiệu suất Khởi tạo</h2>
+                    <button onClick={handleCopy} className="bg-gray-700/80 hover:bg-gray-600/80 text-xs text-gray-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105">
+                        {copyStatus}
+                    </button>
+                </div>
                 <div className="space-y-2 text-sm font-mono">
                     {entries.map(([key, value]) => (
                          <p key={key} className="flex justify-between items-baseline border-b border-gray-700/50 pb-1">
@@ -232,6 +254,25 @@ function App() {
                 </div>
             </Card>
         )
+    };
+
+    const handleCopyQuery = () => {
+        if (!queryResult) return;
+        let text = 'Kết quả Truy vấn\n\n';
+        text += `Tổng cộng:\n${queryResult.total.toFixed(2)}\n\n`;
+        text += `Số hàng quét:\n${queryResult.scanned.toLocaleString()}\n\n`;
+        text += `Lập kế hoạch:\n${queryResult.planning.toFixed(2)}ms\n\n`;
+        text += `Thực thi:\n${queryResult.execution.toFixed(2)}ms\n\n`;
+        text += 'Xem kế hoạch thực thi\n';
+        text += JSON.stringify(queryResult.plan, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2);
+        
+        navigator.clipboard.writeText(text).then(() => {
+            setQueryCopyStatus('Đã chép!');
+            setTimeout(() => setQueryCopyStatus('Chép'), 2000);
+        }).catch(err => {
+             console.error('Lỗi sao chép kết quả truy vấn: ', err);
+             addLog('Lỗi: Không thể sao chép kết quả truy vấn.');
+        });
     };
 
     return (
@@ -270,7 +311,12 @@ function App() {
                     <TelemetryDisplay report={telemetryReport} />
                     {queryResult && (
                         <Card className="p-5">
-                             <h2 className="text-xl font-semibold text-white mb-3">Kết quả Truy vấn</h2>
+                             <div className="flex justify-between items-center mb-3">
+                                <h2 className="text-xl font-semibold text-white">Kết quả Truy vấn</h2>
+                                <button onClick={handleCopyQuery} className="bg-gray-700/80 hover:bg-gray-600/80 text-xs text-gray-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105">
+                                    {queryCopyStatus}
+                                </button>
+                            </div>
                              <div className="space-y-2 text-base font-mono">
                                 <p className="flex justify-between items-baseline"><span className="text-gray-400">Tổng cộng:</span> <span className="text-yellow-400 font-bold text-xl">{queryResult.total.toFixed(2)}</span></p>
                                 <p className="flex justify-between items-baseline"><span className="text-gray-400">Số hàng quét:</span> <span className="text-yellow-400 font-bold text-xl">{queryResult.scanned.toLocaleString()}</span></p>
@@ -297,7 +343,7 @@ function App() {
                         <div className="flex justify-between items-center mb-3">
                             <h2 className="text-xl font-semibold text-white">Nhật ký Hoạt động</h2>
                             <button onClick={copyLog} className="bg-gray-700/80 hover:bg-gray-600/80 text-xs text-gray-300 font-bold py-1.5 px-4 rounded-md transition-all duration-200 transform hover:scale-105">
-                                {copyStatus}
+                                {logCopyStatus}
                             </button>
                         </div>
                         <div className="font-mono text-sm text-gray-400 space-y-2 overflow-y-auto flex-grow bg-gray-900/70 p-4 rounded-md min-h-[300px]">
